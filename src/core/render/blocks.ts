@@ -38,6 +38,24 @@ h1 + .${BLOCK_CLASS} { font-size: 0.52em; font-weight: 600; }
 h2 + .${BLOCK_CLASS} { font-size: 0.66em; font-weight: 600; }
 h3 + .${BLOCK_CLASS} { font-size: 0.82em; }
 h4 + .${BLOCK_CLASS}, h5 + .${BLOCK_CLASS}, h6 + .${BLOCK_CLASS} { font-size: 0.9em; }
+.tf-inline {
+  display: inline;
+  margin: 0 3px;
+  padding: 1px 6px;
+  border-left: 2px solid var(--tf-rule-color, rgba(15, 118, 110, 0.38));
+  background: var(--tf-card-bg, rgba(15, 118, 110, 0.08));
+  border-radius: 4px;
+  color: var(--tf-trans-color, #59636f);
+  font-family: inherit;
+  font-size: 0.94em;
+  line-height: inherit;
+  white-space: pre-wrap;
+  cursor: copy;
+  user-select: none;
+  contain: content;
+}
+.tf-inline[data-state="loading"] { opacity: 0.6; }
+.tf-inline[data-state="error"] { color: #b42318; }
 @keyframes tf-in {
   from { opacity: 0; transform: translateY(2px); }
   to { opacity: 1; transform: translateY(0); }

@@ -5,6 +5,7 @@ import type { RuntimeMessage, RuntimeResponse } from '../../core/messages';
 import { LANGUAGES } from '../../core/lang';
 import { formatGlossary, parseGlossary } from '../../core/glossary';
 import { estimateCost, getUsage } from '../../core/usage';
+import { formatShortcut, normalizeShortcut } from '../../core/shortcut';
 import type { PageMode } from '../../core/settings/schema';
 
 const send = <T,>(message: RuntimeMessage) =>
@@ -57,11 +58,42 @@ const PROVIDERS: ProviderInfo[] = [
   },
 ];
 
+function ShortcutRecorder({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const [recording, setRecording] = useState(false);
+  return (
+    <input
+      className="shortcut-input"
+      readOnly
+      value={recording ? '按下按键…' : formatShortcut(value)}
+      onFocus={() => setRecording(true)}
+      onBlur={() => setRecording(false)}
+      onKeyDown={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.key === 'Escape') {
+          setRecording(false);
+          (event.target as HTMLInputElement).blur();
+          return;
+        }
+        const shortcut = normalizeShortcut(event);
+        if (shortcut) {
+          onChange(shortcut);
+          setRecording(false);
+          (event.target as HTMLInputElement).blur();
+        }
+      }}
+      aria-label="划词触发快捷键"
+    />
+  );
+}
+
 export default function App() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [active, setActive] = useState('volc');
   const [target, setTarget] = useState('zh');
   const [mode, setMode] = useState<PageMode>('blend');
+  const [selectionTrigger, setSelectionTrigger] = useState<'button' | 'shortcut' | 'both'>('both');
+  const [selectionKeys, setSelectionKeys] = useState('alt+s');
   const [glossaryText, setGlossaryText] = useState('');
   const [usage, setUsage] = useState<{ total: number; byProvider: Record<string, number> } | null>(null);
   const [configs, setConfigs] = useState<Record<string, ProviderConfig>>({});
@@ -79,6 +111,8 @@ export default function App() {
         setConfigs(response.data.provider.configs);
         setTarget(response.data.language.target);
         setMode(response.data.page.mode);
+        setSelectionTrigger(response.data.selection.trigger);
+        setSelectionKeys(response.data.selection.keys);
         setGlossaryText(formatGlossary(response.data.glossary.entries));
       }
       const current = await getUsage();
@@ -136,6 +170,11 @@ export default function App() {
           provider: { active, fallback: [], configs },
           language: { ...(settings?.language ?? { source: 'auto', target }), target },
           page: { ...(settings?.page ?? { mode, autoTranslate: false, maxSegments: 2000, includeIframes: false, rules: [] }), mode },
+          selection: {
+            ...(settings?.selection ?? { enabled: true, target, trigger: selectionTrigger, keys: selectionKeys }),
+            trigger: selectionTrigger,
+            keys: selectionKeys,
+          },
           glossary: { entries: parseGlossary(glossaryText) },
         } as unknown as Partial<Settings>,
       });
@@ -374,6 +413,37 @@ export default function App() {
         </div>
       </div>
 
+
+      <div className="card">
+        <h2>划词与快捷键</h2>
+        <p className="desc">选中文本后按你设置的键，译文会直接出现在选区旁边；也可以保留「译」浮标。</p>
+        <div className="grid2">
+          <div className="field" style={{ marginTop: 0 }}>
+            <label htmlFor="selectionTrigger">触发方式</label>
+            <select
+              id="selectionTrigger"
+              value={selectionTrigger}
+              onChange={(e) => setSelectionTrigger(e.target.value as 'button' | 'shortcut' | 'both')}
+            >
+              <option value="both">浮标 + 快捷键</option>
+              <option value="button">仅浮标按钮</option>
+              <option value="shortcut">仅快捷键</option>
+            </select>
+          </div>
+          <div className="field" style={{ marginTop: 0 }}>
+            <label htmlFor="selectionKeys">快捷键</label>
+            <ShortcutRecorder value={selectionKeys} onChange={setSelectionKeys} />
+          </div>
+        </div>
+        <div className="hint">
+          点一下输入框再按组合键即可录制。单字母（T、R）也能用，但可能和网页输入冲突；组合键更稳妥。浏览器全局 Alt+S 仍然可用。
+        </div>
+        <div className="actions">
+          <button className="btn primary" onClick={() => void save()} disabled={busy}>保存划词设置</button>
+          {status && <span className={`status ${status.kind}`}>{status.text}</span>}
+        </div>
+      </div>
+
       <div className="card">
         <h2>术语表</h2>
         <p className="desc">每行一条「原文=译文」，大小写不敏感，长词优先。翻译前会替换为占位符，译后还原。</p>
@@ -413,7 +483,7 @@ export default function App() {
       <div className="card">
         <h2>关于</h2>
         <p className="desc">
-          TransFlow v1.0.0 · MIT · github.com/shixiuhai/transflow
+          TransFlow v1.1.0 · MIT · github.com/shixiuhai/transflow
         </p>
         {settings && <div className="hint">当前渠道：{settings.provider.active}</div>}
       </div>

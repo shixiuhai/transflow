@@ -18,7 +18,14 @@ export interface Settings {
     includeIframes: boolean;
     rules: string[];
   };
-  selection: { enabled: boolean; target: string };
+  selection: {
+    enabled: boolean;
+    target: string;
+    /** button = floating button only, shortcut = key only, both = either. */
+    trigger: 'button' | 'shortcut' | 'both';
+    /** Normalized shortcut, e.g. `alt+s` or `t`. */
+    keys: string;
+  };
   input: { enabled: boolean };
   ui: { theme: 'auto' | 'light' | 'dark'; reduceMotion: boolean };
   glossary: { entries: GlossaryEntry[] };
@@ -39,7 +46,7 @@ export const DEFAULT_SETTINGS: Settings = {
     includeIframes: false,
     rules: [],
   },
-  selection: { enabled: true, target: 'zh' },
+  selection: { enabled: true, target: 'zh', trigger: 'both', keys: 'alt+s' },
   input: { enabled: true },
   ui: { theme: 'auto', reduceMotion: false },
   glossary: { entries: [] },

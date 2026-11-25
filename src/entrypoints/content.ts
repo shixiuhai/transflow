@@ -1,6 +1,8 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import type { RuntimeMessage, RuntimeResponse, TranslateSuccess } from '../core/messages';
 import type { Settings } from '../core/settings/schema';
+import { normalizeSettings } from '../core/settings/schema';
+import { matchesShortcut } from '../core/shortcut';
 import type { PageMode } from '../core/settings/schema';
 import { collectBlocks, type PageBlock } from '../core/segment/collector';
 import { buildBatches } from '../core/segment/batcher';
@@ -16,6 +18,7 @@ interface SelectionInfo {
   text: string;
   rect: DOMRect;
   el: HTMLElement;
+  range: Range;
 }
 
 interface PageJob {
@@ -36,7 +39,8 @@ function readSelection(): SelectionInfo | null {
   if (rect.width === 0 && rect.height === 0) return null;
   const anchor = selection.anchorNode;
   const el = (anchor instanceof HTMLElement ? anchor : anchor?.parentElement) ?? document.body;
-  return { text, rect, el };
+  if (el.closest('input, textarea, [contenteditable="true"]')) return null;
+  return { text, rect, el, range: selection.getRangeAt(0).cloneRange() };
 }
 
 function isEditable(target: EventTarget | null): boolean {
@@ -153,6 +157,9 @@ export default defineContentScript({
     let toastTimer: number | null = null;
     let ambient: HTMLDivElement | null = null;
     let pageJob: PageJob | null = null;
+    let settingsCache: Settings | null = null;
+    let inlineNode: HTMLElement | null = null;
+    let lastSelectionTrigger = 0;
 
     const hideTrigger = () => trigger?.classList.remove('show');
 
@@ -177,8 +184,16 @@ export default defineContentScript({
     const getSettings = async (): Promise<Settings> => {
       const response = (await chrome.runtime.sendMessage({ type: 'get-settings' })) as RuntimeResponse<Settings>;
       if (!response.ok) throw new Error(response.error.message);
+      settingsCache = response.data;
       return response.data;
     };
+
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && changes.settings?.newValue) {
+        settingsCache = normalizeSettings(changes.settings.newValue);
+      }
+    });
+    void getSettings().catch(() => null);
 
     const sendTranslate = async (
       segments: { id: string; text: string }[],
@@ -186,6 +201,85 @@ export default defineContentScript({
       to: string,
     ): Promise<RuntimeResponse<TranslateSuccess>> =>
       (await chrome.runtime.sendMessage({ type: 'translate', segments, from, to })) as RuntimeResponse<TranslateSuccess>;
+
+
+    // ---------- inline selection translation ----------
+
+    const clearInline = () => {
+      inlineNode?.remove();
+      inlineNode = null;
+    };
+
+    const insertInlineNode = (range: Range, palette: Palette): HTMLElement | null => {
+      const end = range.cloneRange();
+      end.collapse(false);
+      const container = end.endContainer;
+      const parent = container.nodeType === Node.ELEMENT_NODE
+        ? (container as HTMLElement)
+        : container.parentElement;
+      if (!parent || parent.closest('input, textarea, select, [contenteditable="true"]')) return null;
+
+      const node = document.createElement('span');
+      node.className = 'tf-inline';
+      node.dataset.state = 'loading';
+      node.setAttribute('translate', 'no');
+      node.contentEditable = 'false';
+      node.style.setProperty('--tf-trans-color', palette.trans);
+      node.style.setProperty('--tf-rule-color', palette.rule);
+      node.style.setProperty('--tf-card-bg', palette.card);
+      node.textContent = '翻译中…';
+      try {
+        end.insertNode(node);
+      } catch {
+        return null;
+      }
+      return node;
+    };
+
+    const translateSelectionInline = async (info: SelectionInfo) => {
+      const now = Date.now();
+      if (now - lastSelectionTrigger < 250) return;
+      lastSelectionTrigger = now;
+
+      clearInline();
+      hideTrigger();
+      closeCard();
+
+      const settings = settingsCache ?? (await getSettings().catch(() => null));
+      if (!settings?.selection.enabled) return;
+      const target = settings.selection.target || settings.language.target || 'zh';
+      const palette = samplePalette(info.el);
+      const node = insertInlineNode(info.range, palette);
+      if (!node) {
+        // Fallback when the selection cannot hold an inline node.
+        await requestTranslation(info.text, info.rect, info.el);
+        return;
+      }
+
+      inlineNode = node;
+      node.addEventListener('click', async (event) => {
+        event.stopPropagation();
+        await navigator.clipboard.writeText(node.textContent ?? '');
+        showToast('已复制译文');
+      });
+
+      try {
+        const response = await sendTranslate([{ id: 'selection', text: info.text }], 'auto', target);
+        if (inlineNode !== node) return;
+        if (!response.ok) {
+          node.dataset.state = 'error';
+          node.textContent = response.error.message;
+          return;
+        }
+        node.dataset.state = 'done';
+        node.textContent = response.data.results[0]?.text ?? '';
+        node.title = '点击复制译文';
+      } catch (error) {
+        if (inlineNode !== node) return;
+        node.dataset.state = 'error';
+        node.textContent = `翻译失败：${(error as Error).message}`;
+      }
+    };
 
     // ---------- selection bubble ----------
 
@@ -268,6 +362,10 @@ export default defineContentScript({
     };
 
     const showTrigger = (info: SelectionInfo) => {
+      if ((settingsCache?.selection.trigger ?? 'both') === 'shortcut') {
+        hideTrigger();
+        return;
+      }
       if (!trigger) {
         trigger = document.createElement('button');
         trigger.className = 'trigger';
@@ -276,7 +374,7 @@ export default defineContentScript({
         trigger.addEventListener('mousedown', (event) => event.preventDefault());
         trigger.addEventListener('click', () => {
           const current = readSelection();
-          if (current) void requestTranslation(current.text, current.rect, current.el);
+          if (current) void translateSelectionInline(current);
         });
         layer.appendChild(trigger);
       }
@@ -559,8 +657,12 @@ export default defineContentScript({
       if (isEditable(event.target)) return;
       window.setTimeout(() => {
         const info = readSelection();
-        if (info) showTrigger(info);
-        else hideTrigger();
+        if (info) {
+          if (inlineNode && !inlineNode.contains(event.target as Node)) clearInline();
+          showTrigger(info);
+        } else {
+          hideTrigger();
+        }
       }, 100);
     });
 
@@ -570,6 +672,7 @@ export default defineContentScript({
       if (!inside) {
         hideTrigger();
         closeCard();
+        if (!inlineNode || !path.includes(inlineNode)) clearInline();
       }
     });
 
@@ -577,8 +680,26 @@ export default defineContentScript({
       if (event.key === 'Escape') {
         hideTrigger();
         closeCard();
+        clearInline();
       }
     });
+
+    document.addEventListener(
+      'keydown',
+      (event) => {
+        if (event.defaultPrevented || event.isComposing || isEditable(event.target)) return;
+        const settings = settingsCache;
+        if (!settings?.selection.enabled) return;
+        if (settings.selection.trigger === 'button') return;
+        if (!matchesShortcut(event, settings.selection.keys)) return;
+        const info = readSelection();
+        if (!info) return;
+        event.preventDefault();
+        event.stopPropagation();
+        void translateSelectionInline(info);
+      },
+      true,
+    );
 
     // Wake the MV3 service worker on page load so settings/cache requests are warm.
     try {
@@ -592,7 +713,7 @@ export default defineContentScript({
         if (message.type === 'selection-translate') {
           const info = readSelection();
           if (!info) showToast('请先选中要翻译的文本');
-          else await requestTranslation(info.text, info.rect, info.el);
+          else await translateSelectionInline(info);
           sendResponse({ ok: true, data: null });
           return;
         }

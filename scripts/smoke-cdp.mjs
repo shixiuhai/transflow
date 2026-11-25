@@ -262,6 +262,37 @@ check('selection translation records usage', usageAfter > usageBefore, `${usageB
 await page.screenshot({ path: '/tmp/tf_selection.png' });
 await page.evaluate(() => getSelection().removeAllRanges());
 
+// --- 20. configurable shortcut places translation inline ---
+await page.keyboard.press('Escape');
+await patchSettings("v.selection = { enabled: true, target: 'zh', trigger: 'shortcut', keys: 't' };");
+await sleep(350);
+await page.evaluate(() => {
+  (document.activeElement instanceof HTMLElement ? document.activeElement : null)?.blur();
+  document.body.tabIndex = -1;
+  document.body.focus();
+  getSelection().removeAllRanges();
+  const p = document.querySelectorAll('article p')[1];
+  p.scrollIntoView({ block: 'center' });
+  const range = document.createRange();
+  range.selectNodeContents(p);
+  const selection = getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+});
+await page.keyboard.press('t');
+await sleep(900);
+const inline = await page.evaluate(() => {
+  const node = document.querySelector('.tf-inline');
+  return node ? { text: node.textContent ?? '', state: node.dataset.state } : null;
+});
+check('configured shortcut places inline translation', Boolean(inline) && inline.text.includes('模拟'), JSON.stringify(inline));
+await page.screenshot({ path: '/tmp/tf_inline.png' });
+await page.keyboard.press('Escape');
+await sleep(250);
+const inlineGone = await page.evaluate(() => !document.querySelector('.tf-inline'));
+check('Escape removes inline translation', inlineGone);
+await patchSettings("v.selection = { enabled: true, target: 'zh', trigger: 'both', keys: 'alt+s' };");
+
 // --- 20. cancel stops applying translations ---
 await page.evaluate(() => window.scrollTo(0, 0));
 const pending = sw.eval(`chrome.tabs.sendMessage(${tabId}, {type:'page-translate'})`);
