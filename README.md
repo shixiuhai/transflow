@@ -1,68 +1,104 @@
 # 译流 TransFlow
 
-> 快速、开源的双语阅读层。整页双语、划词翻译、输入框翻译，默认接入国内低延迟渠道。
+> 快速、开源的双语阅读层。整页双语、划词、输入框翻译，默认接入国内低延迟渠道。
 
-**状态：v0.2.0 开发预览。** 文本翻译、划词翻译、整页双语（4 种样式 / 环境条 / 缓存 / 取消还原）已可用；输入框翻译、术语表、用量面板、百度渠道正在开发中。
+![整页双语](docs/assets/fusion-page.png)
+
+**状态：v0.6.0 开发预览。** 20 项自动化冒烟全绿；火山 / 百度 / OpenAI 兼容 / Mock 四类渠道，整页四种样式、区块级配色、缓存、术语表、用量、首次向导均已可用。真实火山链路需自备 AK/SK 后用 `pnpm volc:check` 验证。
 
 ## 为什么做它
 
-- **快**：视口优先、批量请求、缓存命中即时渲染。
-- **融合**：译文继承页面排版与配色，不像外挂面板（Fusion UI）。
-- **开箱即用**：默认火山引擎（每月前 200 万字符免费），三步完成配置。
+- **快**：视口顺序、批量请求、同页去重、缓存命中即时渲染。
+- **融合**：译文继承页面排版与配色，深色区块单独取色，不像外挂面板（Fusion UI）。
+- **开箱即用**：默认火山引擎（每月前 200 万字符免费），3 步向导完成配置。
 - **真正开源**：MIT、无账号、无遥测、密钥只存本机。
 
-## 开发
+## 功能
+
+- **整页双语**：块级渲染（译文是原文的 sibling，不重写 DOM），视口优先，去重，取消/还原。
+- **四种样式**：融入（左细线）/ 轻卡片 / 遮罩（悬停显形）/ 仅译文；按区块背景自动取色。
+- **划词**：选中浮标 / `Alt+S` / 右键，气泡支持换语言、复制、重试，颜色跟随页面。
+- **输入框**：双击空格或 `Alt+D` 原地翻译，`⌘/Ctrl+Z` 撤销。
+- **术语表**：`原文=译文`，翻译前占位符保护、译后还原。
+- **用量**：本机统计本月字符、按渠道分布与粗略费用。
+- **渠道**：火山引擎（默认）、百度高级版、OpenAI 兼容（DeepSeek/GLM/Qwen）、本地 Mock。
+
+## 快速开始
 
 ```bash
 pnpm install
-pnpm dev        # 启动开发模式（自动打开 Chrome）
+pnpm dev        # 开发模式（自动打开 Chrome）
 pnpm build      # 产物：.output/chrome-mv3
-pnpm test       # 单元测试
-pnpm typecheck
-pnpm smoke      # 端到端冒烟（需要 Chrome for Testing / Chromium）
 ```
 
-`pnpm smoke` 会启动本地 fixture、加载扩展、通过 service worker 触发整页翻译、断言译文块与还原，并截图到 `/tmp/tf_page.png`。默认使用 Playwright 缓存里的 Chrome for Testing；可通过 `CHROME_BIN` 指定。
+加载：`chrome://extensions` → 开发者模式 → 加载已解压的扩展程序 → 选择 `.output/chrome-mv3`。
 
-可选：`MODE=card pnpm smoke` 验证不同译文样式（blend / card / mask / replace）。
+首次点击图标会进入 3 步向导：选渠道 → 填密钥 → 选目标语言。
 
-加载扩展：`chrome://extensions` → 开发者模式 → 加载已解压的扩展程序 → 选择 `.output/chrome-mv3`。
+## 配置渠道
 
-## 配置火山引擎（推荐）
+| 渠道 | 免费额度 | 获取密钥 |
+|---|---|---|
+| 火山引擎（推荐） | 每月前 200 万字符 | https://console.volcengine.com/iam/user |
+| 百度翻译高级版 | 每月 100 万字符 | https://fanyi-api.baidu.com/access/0/1 |
+| OpenAI 兼容 | 按 token | 任意兼容端点 + model |
 
-1. 注册并实名：https://console.volcengine.com/
-2. 开通机器翻译：https://console.volcengine.com/mt
-3. 创建子用户与密钥：https://console.volcengine.com/iam/user
-   - 新建用户 → 勾选「编程访问」→ 授权 `TranslateFullAccess` → 创建密钥
-4. 在扩展「设置 → 翻译渠道 → 火山引擎」填入 Access Key ID / Secret Access Key，点「测试连接」。
+火山：注册 → 实名 → 开通机器翻译 → 建子用户（编程访问）→ 授权 `TranslateFullAccess` → 创建 AK/SK。
 
-免费额度：每月前 200 万字符；超出 49 元/百万字符。
+密钥只写入 `chrome.storage.local`，不上传。命令行自检：
 
-其他渠道：OpenAI 兼容（DeepSeek / GLM / Qwen）、本地模拟（离线演示）。
+```bash
+mkdir -p /root/.secrets && chmod 700 /root/.secrets
+printf 'VOLC_AK=%s\nVOLC_SK=%s\n' 'AK' 'SK' > /root/.secrets/volc.env
+chmod 600 /root/.secrets/volc.env
+pnpm volc:check
+```
+
+## 开发与测试
+
+```bash
+pnpm typecheck   # tsc --noEmit
+pnpm test        # 34 个单元/契约测试
+pnpm smoke       # 20 项端到端冒烟（Chrome for Testing）
+pnpm zip         # 可安装 zip
+```
+
+`pnpm smoke` 会启动 fixture、加载扩展、通过 service worker 触发翻译，断言：整页/配色/还原/缓存/四种样式/输入框/撤销/术语表/用量/无密钥错误/向导/长页上限/Popup/划词/取消，并截图到 `/tmp/tf_page.png`。需要支持 `--load-extension` 的 Chrome for Testing，可用 `CHROME_BIN` 指定。
+
+- [冒烟矩阵](docs/SMOKE.md)
+- [性能基准](docs/PERF.md)
+- [渠道说明](docs/PROVIDERS.md)
+- [架构](docs/ARCHITECTURE.md)
 
 ## 架构
 
 ```
-src/
-  core/            纯 TS，可单测：类型、语言映射、Provider、签名、设置
-  entrypoints/     background / content / popup / options
-  ui/              设计 token
-tests/unit/        单元测试
+Popup / Options (React) ──runtime messages──▶ Background (Service Worker)
+                                                │ provider registry + V4/MD5 signing
+                                                ▼
+                                      Volc / Baidu / OpenAI / Mock
+
+Content (per page)
+  collect blocks → dedupe → batch → cache ──▶ provider
+  render .tf-block (blend|card|mask|replace)
+  ambient bar · selection bubble · input-box translation
 ```
 
-- 整页翻译是块级渲染：译文作为原文块的 sibling 插入，不重写原 DOM；支持 blend / card / mask / replace 四种样式，按页面背景自动配色。
-- 缓存：L1 内存 + `chrome.storage.local`（30 天 TTL），整页去重后按块命中，二次翻译 0 请求。
-- Provider 适配器统一接口，渠道差异（批量、语言码、签名）收敛在 `core/provider/`。
-- 火山引擎使用 V4 签名（WebCrypto HMAC-SHA256），在 background 中完成，不经过页面。
-- 注入 UI 使用 Shadow DOM，避免污染站点样式。
+- 纯逻辑在 `src/core/`，可单测；浏览器相关只在 `entrypoints/`。
+- 注入 UI 用 Shadow DOM；译文块用 `contain: content`，不参与原 DOM 布局。
+- 缓存键 `provider|from|to|hash(text)`，TTL 30 天，整页 bulk 读取。
 
 ## 快捷键
 
 - `Alt+S` 翻译选中文本
-- `Alt+A` 翻译整页 / 还原（开发中）
-- `Alt+D` 翻译输入框（开发中）
+- `Alt+A` 翻译整页 / 还原
+- `Alt+D` 翻译输入框
 
 可在 `chrome://extensions/shortcuts` 修改。
+
+## 隐私
+
+不收集遥测、无账号、无自建服务器；译文只发送到你选择的渠道；密钥与缓存均在本机。详见 [PRIVACY.md](PRIVACY.md)。
 
 ## 许可
 

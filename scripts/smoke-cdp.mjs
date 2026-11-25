@@ -259,6 +259,7 @@ await sw.eval(`chrome.tabs.sendMessage(${tabId}, { type: 'selection-translate' }
 await sleep(700);
 const usageAfter = JSON.parse(await sw.eval(`chrome.storage.local.get('tf:usage').then((s) => JSON.stringify(s['tf:usage'] || { total: 0 }))`)).total;
 check('selection translation records usage', usageAfter > usageBefore, `${usageBefore} -> ${usageAfter}`);
+await page.screenshot({ path: '/tmp/tf_selection.png' });
 await page.evaluate(() => getSelection().removeAllRanges());
 
 // --- 20. cancel stops applying translations ---

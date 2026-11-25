@@ -6,7 +6,7 @@ import { collectBlocks, type PageBlock } from '../core/segment/collector';
 import { buildBatches } from '../core/segment/batcher';
 import { cacheGetMany, cacheSetMany } from '../core/cache/store';
 import { RateLimiter, mapWithConcurrency } from '../core/schedule/limiter';
-import { applyPalette, samplePalette } from '../core/render/theme';
+import { applyPalette, samplePalette, type Palette } from '../core/render/theme';
 import { clearBlocks, countBlocks, ensureStyles, renderBlock } from '../core/render/blocks';
 
 const HOST_ID = 'transflow-root';
@@ -15,6 +15,7 @@ const BATCH = { maxItems: 12, maxChars: 4000 };
 interface SelectionInfo {
   text: string;
   rect: DOMRect;
+  el: HTMLElement;
 }
 
 interface PageJob {
@@ -33,7 +34,9 @@ function readSelection(): SelectionInfo | null {
   if (text.length < 1 || text.length > 5000) return null;
   const rect = selection.getRangeAt(0).getBoundingClientRect();
   if (rect.width === 0 && rect.height === 0) return null;
-  return { text, rect };
+  const anchor = selection.anchorNode;
+  const el = (anchor instanceof HTMLElement ? anchor : anchor?.parentElement) ?? document.body;
+  return { text, rect, el };
 }
 
 function isEditable(target: EventTarget | null): boolean {
@@ -199,7 +202,19 @@ export default defineContentScript({
       target.style.top = `${top}px`;
     };
 
-    const requestTranslation = async (text: string, rect: DOMRect) => {
+    const styleCardFromPalette = (target: HTMLElement, palette: Palette) => {
+      target.style.background = `color-mix(in srgb, ${palette.bg} 88%, transparent)`;
+      target.style.color = palette.fg;
+      target.style.borderColor = `color-mix(in srgb, ${palette.fg} 12%, transparent)`;
+      const quote = target.querySelector('.quote') as HTMLElement | null;
+      if (quote) quote.style.color = palette.trans;
+      const divider = target.querySelector('.divider') as HTMLElement | null;
+      if (divider) divider.style.background = `color-mix(in srgb, ${palette.fg} 10%, transparent)`;
+      const row = target.querySelector('.row') as HTMLElement | null;
+      if (row) row.style.borderTopColor = `color-mix(in srgb, ${palette.fg} 8%, transparent)`;
+    };
+
+    const requestTranslation = async (text: string, rect: DOMRect, sourceEl: HTMLElement) => {
       closeCard();
       hideTrigger();
       card = document.createElement('div');
@@ -211,6 +226,7 @@ export default defineContentScript({
         <div class="row"><button data-act="copy">复制</button><button data-act="close">关闭</button><span class="spacer"></span><span class="meta">翻译中…</span></div>
       `;
       (card.querySelector('.quote') as HTMLElement).textContent = text;
+      styleCardFromPalette(card, samplePalette(sourceEl));
       positionCard(card, rect);
       layer.appendChild(card);
 
@@ -250,7 +266,7 @@ export default defineContentScript({
         trigger.addEventListener('mousedown', (event) => event.preventDefault());
         trigger.addEventListener('click', () => {
           const current = readSelection();
-          if (current) void requestTranslation(current.text, current.rect);
+          if (current) void requestTranslation(current.text, current.rect, current.el);
         });
         layer.appendChild(trigger);
       }
@@ -279,6 +295,7 @@ export default defineContentScript({
 
     const setAmbient = (text: string, percent: number, actionLabel: string, action: () => void) => {
       const el = ensureAmbient();
+      el.classList.toggle('dark', document.documentElement.classList.contains('tf-dark'));
       (el.querySelector('.amb-text') as HTMLElement).textContent = text;
       (el.querySelector('.amb-pct') as HTMLElement).textContent = `${Math.round(percent)}%`;
       (el.querySelector('.amb-bar i') as HTMLElement).style.width = `${Math.max(0, Math.min(100, percent))}%`;
@@ -565,7 +582,7 @@ export default defineContentScript({
         if (message.type === 'selection-translate') {
           const info = readSelection();
           if (!info) showToast('请先选中要翻译的文本');
-          else await requestTranslation(info.text, info.rect);
+          else await requestTranslation(info.text, info.rect, info.el);
           sendResponse({ ok: true, data: null });
           return;
         }
