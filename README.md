@@ -70,6 +70,7 @@ pnpm zip         # 可安装 zip
 - [渠道说明](docs/PROVIDERS.md)
 - [架构](docs/ARCHITECTURE.md)
 - [发布清单](docs/RELEASE.md)
+- [拿到 key 后验证](docs/VERIFY-WITH-KEY.md)
 - [贡献指南](CONTRIBUTING.md) · [安全](SECURITY.md) · [变更日志](CHANGELOG.md)
 
 ## 架构

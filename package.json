@@ -32,10 +32,5 @@
     "smoke": "bash scripts/smoke.sh",
     "prepare": "wxt prepare",
     "volc:check": "esbuild scripts/volc-check.ts --bundle --platform=node --format=esm --outfile=.output/volc-check.mjs && node .output/volc-check.mjs"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild"
-    ]
   }
 }
