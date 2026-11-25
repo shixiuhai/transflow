@@ -272,6 +272,41 @@ await sleep(500);
 const afterCancel = await page.evaluate(() => document.querySelectorAll('.tf-block').length);
 check('cancel/restore stops translation', afterCancel === 0, `${afterCancel} blocks left`);
 
+// --- 21. 429 error path via OpenAI-compatible mock ---
+const aiControl = (body) =>
+  fetch('http://127.0.0.1:8126/__control', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+await patchSettings(
+  "v.provider = { active: 'openai', fallback: [], configs: { openai: { baseUrl: 'http://127.0.0.1:8126/v1', apiKey: 'test', model: 'mock' } } }; v.page = { ...(v.page || {}), mode: 'blend', maxSegments: 2000 };",
+);
+await aiControl({ status: 429, delayMs: 0 });
+const apiPage = await browser.newPage();
+await apiPage.goto(`chrome-extension://${extensionId}/popup.html`, { waitUntil: 'domcontentloaded' });
+const res429 = await apiPage.evaluate(() =>
+  chrome.runtime.sendMessage({ type: 'translate', segments: [{ id: 'x', text: 'hello' }], from: 'en', to: 'zh' }),
+);
+check('429 surfaces a readable error', res429.ok === false && /429/.test(res429.error.message), JSON.stringify(res429));
+await apiPage.close();
+
+// --- 22. slow request + cancel leaves no partial output ---
+await aiControl({ status: 200, delayMs: 1500 });
+await page.reload({ waitUntil: 'domcontentloaded' });
+await sleep(700);
+const slow = sw.eval(`chrome.tabs.sendMessage(${tabId}, {type:'page-translate'})`);
+await sleep(300);
+await sw.eval(`chrome.tabs.sendMessage(${tabId}, {type:'page-restore'})`);
+await slow.catch(() => null);
+await sleep(1700);
+const slowBlocks = await page.evaluate(() => document.querySelectorAll('.tf-block').length);
+check('slow request cancel leaves no blocks', slowBlocks === 0, `${slowBlocks} blocks`);
+
+await aiControl({ status: 200, delayMs: 0 });
+await patchSettings("v.provider = { active: 'mock', fallback: [], configs: {} };");
+
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
 sw.close();

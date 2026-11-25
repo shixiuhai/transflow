@@ -4,7 +4,7 @@
 
 ![整页双语](docs/assets/fusion-page.png)
 
-**状态：v0.9.0 开发预览（v1.0.0 候选）。** 20 项自动化冒烟全绿；火山 / 百度 / OpenAI 兼容 / Mock 四类渠道，整页四种样式、区块级配色、缓存、术语表、用量、首次向导均已可用。真实火山链路需自备 AK/SK 后用 `pnpm volc:check` 验证。
+**状态：v0.9.0 开发预览（v1.0.0 候选）。** 22 项自动化冒烟全绿；火山 / 百度 / OpenAI 兼容 / Mock 四类渠道，整页四种样式、区块级配色、缓存、术语表、用量、首次向导均已可用。真实火山链路需自备 AK/SK 后用 `pnpm volc:check` 验证。
 
 ## 为什么做它
 
@@ -59,11 +59,11 @@ pnpm volc:check
 ```bash
 pnpm typecheck   # tsc --noEmit
 pnpm test        # 34 个单元/契约测试
-pnpm smoke       # 20 项端到端冒烟（Chrome for Testing）
+pnpm smoke       # 22 项端到端冒烟（Chrome for Testing）
 pnpm zip         # 可安装 zip
 ```
 
-`pnpm smoke` 会启动 fixture、加载扩展、通过 service worker 触发翻译，断言：整页/配色/还原/缓存/四种样式/输入框/撤销/术语表/用量/无密钥错误/向导/长页上限/Popup/划词/取消，并截图到 `/tmp/tf_page.png`。需要支持 `--load-extension` 的 Chrome for Testing，可用 `CHROME_BIN` 指定。
+`pnpm smoke` 会启动 fixture、加载扩展、通过 service worker 触发翻译，断言：整页/配色/还原/缓存/四种样式/输入框/撤销/术语表/用量/无密钥错误/向导/长页上限/Popup/划词/取消/429/慢请求取消，并截图到 `/tmp/tf_page.png`。需要支持 `--load-extension` 的 Chrome for Testing，可用 `CHROME_BIN` 指定。
 
 - [冒烟矩阵](docs/SMOKE.md)
 - [性能基准](docs/PERF.md)

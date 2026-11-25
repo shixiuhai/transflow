@@ -20,6 +20,8 @@ pnpm exec wxt build >/dev/null
 
 python3 -m http.server "$HTTP_PORT" --bind 127.0.0.1 --directory tests/fixtures >/tmp/tf-smoke-http.log 2>&1 &
 SERVER_PID=$!
+node scripts/mock-ai.mjs >/tmp/tf-smoke-ai.log 2>&1 &
+AI_PID=$!
 "$CHROME_BIN" --headless=new --no-sandbox --disable-gpu \
   --disable-extensions-except="$ROOT/.output/chrome-mv3" \
   --load-extension="$ROOT/.output/chrome-mv3" \
@@ -28,7 +30,7 @@ SERVER_PID=$!
 CHROME_PID=$!
 
 cleanup() {
-  kill "$CHROME_PID" "$SERVER_PID" 2>/dev/null || true
+  kill "$CHROME_PID" "$SERVER_PID" "$AI_PID" 2>/dev/null || true
   sleep 1
   rm -rf "$PROFILE" 2>/dev/null || true
 }
