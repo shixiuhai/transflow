@@ -1,0 +1,193 @@
+import { useEffect, useState } from 'react';
+import type { ProviderConfig } from '../../core/provider/types';
+import type { Settings } from '../../core/settings/schema';
+import type { RuntimeMessage, RuntimeResponse } from '../../core/messages';
+
+const send = <T,>(message: RuntimeMessage) =>
+  chrome.runtime.sendMessage(message) as Promise<RuntimeResponse<T>>;
+
+interface ProviderInfo {
+  id: string;
+  name: string;
+  free: string;
+  keyUrl?: string;
+  fields: { key: keyof ProviderConfig; label: string; placeholder?: string; secret?: boolean }[];
+}
+
+const PROVIDERS: ProviderInfo[] = [
+  {
+    id: 'volc',
+    name: '火山引擎',
+    free: '每月前 200 万字符免费 · 超出 49 元/百万',
+    keyUrl: 'https://console.volcengine.com/iam/user',
+    fields: [
+      { key: 'accessKey', label: 'Access Key ID', placeholder: 'AKLT…' },
+      { key: 'secretKey', label: 'Secret Access Key', placeholder: '只保存在本机', secret: true },
+    ],
+  },
+  {
+    id: 'openai',
+    name: 'OpenAI 兼容',
+    free: 'DeepSeek / GLM / Qwen 等，按 token 计费',
+    fields: [
+      { key: 'baseUrl', label: 'Base URL', placeholder: 'https://api.deepseek.com/v1' },
+      { key: 'apiKey', label: 'API Key', placeholder: 'sk-…', secret: true },
+      { key: 'model', label: 'Model', placeholder: 'deepseek-chat' },
+    ],
+  },
+  {
+    id: 'mock',
+    name: '本地模拟',
+    free: '无需密钥，仅用于离线演示',
+    fields: [],
+  },
+];
+
+export default function App() {
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [active, setActive] = useState('volc');
+  const [configs, setConfigs] = useState<Record<string, ProviderConfig>>({});
+  const [status, setStatus] = useState<{ kind: 'ok' | 'err' | 'info'; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void (async () => {
+      const response = await send<Settings>({ type: 'get-settings' });
+      if (response.ok) {
+        setSettings(response.data);
+        setActive(response.data.provider.active === 'mock' ? 'volc' : response.data.provider.active);
+        setConfigs(response.data.provider.configs);
+      }
+    })();
+  }, []);
+
+  const current = PROVIDERS.find((p) => p.id === active) ?? PROVIDERS[0];
+  const config = configs[active] ?? {};
+
+  const update = (key: keyof ProviderConfig, value: string) => {
+    setConfigs((prev) => ({ ...prev, [active]: { ...prev[active], [key]: value } }));
+  };
+
+  const save = async () => {
+    setBusy(true);
+    setStatus(null);
+    try {
+      const response = await send<Settings>({
+        type: 'save-settings',
+        patch: {
+          provider: { active, fallback: [], configs },
+        } as unknown as Partial<Settings>,
+      });
+      if (!response.ok) throw new Error(response.error.message);
+      setSettings(response.data);
+      setStatus({ kind: 'ok', text: '已保存' });
+    } catch (error) {
+      setStatus({ kind: 'err', text: (error as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const test = async () => {
+    setBusy(true);
+    setStatus({ kind: 'info', text: '正在测试…' });
+    try {
+      const response = await send<{ ok: boolean; latencyMs: number; detail?: string }>({
+        type: 'test-provider',
+        id: active,
+        config,
+      });
+      if (!response.ok) throw new Error(response.error.message);
+      setStatus({
+        kind: response.data.ok ? 'ok' : 'err',
+        text: response.data.ok
+          ? `连接成功 · ${response.data.latencyMs} ms · ${response.data.detail ?? ''}`
+          : '连接失败',
+      });
+    } catch (error) {
+      setStatus({ kind: 'err', text: (error as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="wrap">
+      <div className="head">
+        <div>
+          <h1>译流设置</h1>
+          <p>密钥只保存在本机浏览器，不会上传到任何服务器。</p>
+        </div>
+        <div className="brand">
+          <span className="mark">译</span>
+        </div>
+      </div>
+
+      <div className="card">
+        <h2>翻译渠道</h2>
+        <p className="desc">默认使用火山引擎；没有密钥时可先用本地模拟渠道体验。</p>
+        <div className="providers">
+          {PROVIDERS.map((provider) => (
+            <div
+              key={provider.id}
+              className={`provider ${active === provider.id ? 'sel' : ''}`}
+              onClick={() => {
+                setActive(provider.id);
+                setStatus(null);
+              }}
+            >
+              <div className="name">
+                {provider.name}
+                <span className="radio" />
+              </div>
+              <div className="free">{provider.free}</div>
+            </div>
+          ))}
+        </div>
+
+        {current.fields.length > 0 && (
+          <div className={current.fields.length > 1 ? 'grid2' : ''} style={{ marginTop: 6 }}>
+            {current.fields.map((field) => (
+              <div className="field" key={String(field.key)}>
+                <label htmlFor={String(field.key)}>{field.label}</label>
+                <input
+                  id={String(field.key)}
+                  type={field.secret ? 'password' : 'text'}
+                  placeholder={field.placeholder}
+                  value={String(config[field.key] ?? '')}
+                  onChange={(e) => update(field.key, e.target.value)}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {current.keyUrl && (
+          <div className="hint">
+            获取密钥：<a href={current.keyUrl} target="_blank" rel="noreferrer">{current.keyUrl}</a>
+          </div>
+        )}
+
+        <div className="actions">
+          <button className="btn primary" onClick={() => void save()} disabled={busy}>
+            保存
+          </button>
+          <button className="btn" onClick={() => void test()} disabled={busy}>
+            测试连接
+          </button>
+          {status && <span className={`status ${status.kind}`}>{status.text}</span>}
+        </div>
+      </div>
+
+      <div className="card">
+        <h2>关于</h2>
+        <p className="desc">
+          TransFlow v0.1.0 · MIT · 开源地址待发布。当前为开发预览版：划词翻译与文本翻译可用，整页翻译、输入框翻译、术语表正在开发中。
+        </p>
+        {settings && <div className="hint">当前渠道：{settings.provider.active}</div>}
+      </div>
+
+      <div className="footer">译流 TransFlow · 一个快速、开源的双语阅读层</div>
+    </div>
+  );
+}
