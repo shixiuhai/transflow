@@ -6,7 +6,7 @@
 - 代码目录：`/root/transflow`（本机唯一源码；旧的 `chrome_translate` 是前身，已不维护）。
 - 当前版本 **v1.0.0**，已发布 GitHub Release。
 - **已发布 GitHub**：<https://github.com/shixiuhai/transflow>（public），v1.0.0 Release 附可安装 zip。
-- **尚未上架 Chrome Web Store / Edge Add-ons**（开发者控制台已打开待登录）。
+- **Chrome Web Store**：开发者控制台已登录（publisher `ecf36940-fdff-4bb9-a5d8-8a19fbda432c`），上传被 Google 要求**先开启两步验证**；zip 已托管到 Pages 便于上传。
 - 联系邮箱：`shixiuhai@shixiuhai.serv00.net`（Serv00）。
 
 ## 技术栈与目录
