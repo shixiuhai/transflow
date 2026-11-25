@@ -18,6 +18,7 @@ import {
   setVocabUuid,
 } from '../../core/vocab/store';
 import type { VocabState } from '../../core/vocab/types';
+import { DEFAULT_SYNC_URL } from '../../core/vocab/sync';
 import type { PageMode } from '../../core/settings/schema';
 
 const send = <T,>(message: RuntimeMessage) =>
@@ -242,6 +243,28 @@ export default function App() {
       setStatus({ kind: 'ok', text: `已恢复并合并 · ${response.data.items} 条` });
     } catch (error) {
       setStatus({ kind: 'err', text: `恢复失败：${(error as Error).message}` });
+    } finally {
+      setVocabBusy(false);
+    }
+  };
+
+  const deleteCloudVocab = async () => {
+    if (!vocab || !confirm('删除云端单词本？此操作不可恢复，本地词条仍保留。')) return;
+    setVocabBusy(true);
+    try {
+      const response = await fetch(`${(settings?.vocab.syncUrl || DEFAULT_SYNC_URL).replace(/\/$/, '')}/vocab`, {
+        method: 'DELETE',
+        headers: { 'X-Transflow-Id': vocab.uuid },
+      });
+      const json = (await response.json().catch(() => null)) as { code?: number; msg?: string } | null;
+      if (!response.ok || json?.code !== 200) throw new Error(json?.msg || `删除失败（${response.status}）`);
+      const next = await loadVocab();
+      next.sync.lastSyncAt = 0;
+      await saveVocab(next);
+      setVocab(next);
+      setStatus({ kind: 'ok', text: '云端单词本已删除' });
+    } catch (error) {
+      setStatus({ kind: 'err', text: `删除云端失败：${(error as Error).message}` });
     } finally {
       setVocabBusy(false);
     }
@@ -691,6 +714,7 @@ export default function App() {
           >
             清空本地
           </button>
+          <button className="btn" onClick={() => void deleteCloudVocab()} disabled={vocabBusy}>删除云端</button>
         </div>
 
         <div className="vocab-list">
