@@ -436,7 +436,7 @@ export default function App() {
           </div>
         </div>
         <div className="hint">
-          点一下输入框再按组合键即可录制。单字母（T、R）也能用，但可能和网页输入冲突；组合键更稳妥。浏览器全局 Alt+S 仍然可用。
+          点一下输入框再按组合键即可录制。默认是字母 T（小写 t 直接按即可）；也可以录 R 或组合键。单键可能和网页输入冲突，组合键更稳妥。浏览器全局 Alt+S 仍然可用。
         </div>
         <div className="actions">
           <button className="btn primary" onClick={() => void save()} disabled={busy}>保存划词设置</button>

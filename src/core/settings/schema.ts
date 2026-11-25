@@ -4,7 +4,7 @@ import type { GlossaryEntry } from '../glossary';
 export type PageMode = 'blend' | 'card' | 'mask' | 'replace';
 
 export interface Settings {
-  version: 1;
+  version: 2;
   provider: {
     active: string;
     fallback: string[];
@@ -32,7 +32,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  version: 1,
+  version: 2,
   provider: {
     active: 'mock',
     fallback: [],
@@ -46,7 +46,7 @@ export const DEFAULT_SETTINGS: Settings = {
     includeIframes: false,
     rules: [],
   },
-  selection: { enabled: true, target: 'zh', trigger: 'both', keys: 'alt+s' },
+  selection: { enabled: true, target: 'zh', trigger: 'both', keys: 't' },
   input: { enabled: true },
   ui: { theme: 'auto', reduceMotion: false },
   glossary: { entries: [] },
@@ -68,6 +68,14 @@ export function mergeSettings(base: Settings, patch: unknown): Settings {
 }
 
 export function normalizeSettings(raw: unknown): Settings {
+  const sourceVersion = isPlain(raw) && typeof raw.version === 'number' ? raw.version : 0;
   const merged = mergeSettings(DEFAULT_SETTINGS, raw);
-  return { ...merged, version: 1 };
+
+  // v2: the default selection trigger became the lowercase `t` key. Only migrate
+  // the old untouched default (`alt+s` + both) so custom bindings are preserved.
+  if (sourceVersion < 2 && merged.selection.keys === 'alt+s' && merged.selection.trigger === 'both') {
+    merged.selection.keys = 't';
+  }
+
+  return { ...merged, version: 2 };
 }
