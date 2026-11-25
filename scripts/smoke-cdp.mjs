@@ -114,6 +114,8 @@ await patchSettings("v.page = { ...(v.page || {}), mode: 'blend', maxSegments: 2
 const first = await triggerPage(page, tabId);
 const count = await page.$$eval('.tf-block', (nodes) => nodes.length);
 check('page translate inserts blocks', count === 7, `${count} blocks`);
+const pageStateAfter = await sw.eval(`chrome.tabs.sendMessage(${tabId}, {type:'page-status'})`);
+check('page status reports translated', Boolean(pageStateAfter?.ok) && pageStateAfter.data.translated === true, JSON.stringify(pageStateAfter?.data));
 check('first block appears quickly', first.first !== null && first.first < 1000, `${first.first}ms first / ${first.total}ms total`);
 
 const palettes = await page.$$eval('.tf-block', (nodes) =>
@@ -134,6 +136,8 @@ const restored = await page.evaluate(() => ({
   text: document.querySelector('article p')?.textContent?.slice(0, 24),
 }));
 check('restore removes all translations', restored.blocks === 0 && restored.text?.startsWith('We are told'), JSON.stringify(restored));
+const pageStateRestored = await sw.eval(`chrome.tabs.sendMessage(${tabId}, {type:'page-status'})`);
+check('page status reports restored', Boolean(pageStateRestored?.ok) && pageStateRestored.data.translated === false, JSON.stringify(pageStateRestored?.data));
 
 // --- 3. cache hit ---
 const cacheBefore = await sw.eval(`chrome.storage.local.get(null).then((all) => Object.keys(all).filter((k) => k.startsWith('tf:cache:')).length)`);

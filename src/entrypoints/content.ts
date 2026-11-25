@@ -97,7 +97,7 @@ const STYLE = `
   }
   .divider { height: 1px; background: currentColor; opacity: .08; margin: 0 -14px 9px; }
   .text { font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; min-height: 20px; }
-  .row { display: flex; align-items: center; gap: 4px; margin: 8px -14px 0; padding: 6px 10px 2px; border-top: 1px solid rgba(16,24,40,.06); }
+  .row { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin: 8px -14px 0; padding: 6px 10px 2px; border-top: 1px solid rgba(16,24,40,.06); }
   .row button {
     border: 0; background: transparent; font: inherit; font-size: 11.5px; color: inherit; opacity: .72;
     padding: 5px 8px; border-radius: 6px; cursor: pointer;
@@ -136,6 +136,13 @@ const STYLE = `
   .ambient.dark .amb-bar { background: rgba(45,212,191,.2); }
   .ambient.dark .amb-bar i { background: #2DD4BF; }
   .ambient.dark .amb-btn { color: #7FE7D6; }
+  .ambient.compact {
+    left: auto; right: 12px; top: 12px; width: auto; height: 30px;
+    padding: 0 6px 0 10px; border: 1px solid rgba(15,118,110,.16); border-radius: 999px;
+    transform: translateY(0); box-shadow: 0 6px 18px rgba(16,24,40,.12);
+  }
+  .ambient.compact .amb-mark, .ambient.compact .amb-bar, .ambient.compact .amb-pct, .ambient.compact .amb-spacer { display: none; }
+  .ambient.compact .amb-text { max-width: 220px; }
   @media (prefers-reduced-motion: reduce) {
     .ambient, .card, .trigger, .toast { transition: none; }
   }
@@ -154,7 +161,7 @@ function mount() {
   const layer = document.createElement('div');
   layer.className = 'layer';
   shadow.append(style, layer);
-  document.documentElement.appendChild(host);
+  (document.body ?? document.documentElement).appendChild(host);
   return shadow;
 }
 
@@ -170,6 +177,11 @@ export default defineContentScript({
     const shadow = mount();
     const hostEl = document.getElementById(HOST_ID);
     const layer = getLayer(shadow);
+    // Some sites (e.g. heavy news frameworks) strip unknown nodes during
+    // hydration. Re-attach a detached host so the bubble can still render.
+    window.setInterval(() => {
+      if (hostEl && !hostEl.isConnected) (document.body ?? document.documentElement).appendChild(hostEl);
+    }, 500);
     let trigger: HTMLButtonElement | null = null;
     let card: HTMLDivElement | null = null;
     let toastTimer: number | null = null;
@@ -277,6 +289,7 @@ export default defineContentScript({
     };
 
     const requestTranslation = async (text: string, rect: DOMRect, sourceEl: HTMLElement) => {
+      hostEl?.setAttribute('data-tf-render', 'start');
       closeCard();
       hideTrigger();
 
@@ -291,24 +304,14 @@ export default defineContentScript({
         <div class="quote"></div>
         <div class="divider"></div>
         <div class="text"><div class="skeleton" style="width:88%"></div><div class="skeleton" style="width:64%"></div></div>
-        <div class="row"><button data-act="copy">复制</button><button data-act="speak">朗读</button><button data-act="close">关闭</button><span class="spacer"></span><span class="meta">翻译中…</span></div>
+        <div class="row"><button data-act="speak-source">朗读原文</button><button data-act="speak-target">朗读译文</button><button data-act="copy">复制</button><button data-act="close">关闭</button><span class="spacer"></span><span class="meta">翻译中…</span></div>
       `;
       (card.querySelector('.quote') as HTMLElement).textContent = text;
       styleCardFromPalette(card, samplePalette(sourceEl));
       layer.appendChild(card);
       hostEl?.setAttribute('data-tf-bubble', 'open');
+      hostEl?.setAttribute('data-tf-render', 'appended');
       positionCard(card, anchor);
-
-      const opened = card;
-      const openedScrollY = window.scrollY;
-      const onScroll = () => {
-        // Ignore the residual scroll event queued by scrollIntoView right before
-        // the bubble opened; only close on a real scroll.
-        if (Math.abs(window.scrollY - openedScrollY) < 8) return;
-        window.removeEventListener('scroll', onScroll);
-        if (card === opened) closeCard();
-      };
-      window.addEventListener('scroll', onScroll, { passive: true });
 
       try {
         const settings = await getSettings().catch(() => null);
@@ -331,19 +334,29 @@ export default defineContentScript({
           await navigator.clipboard.writeText(translated);
           metaEl.textContent = '已复制';
         });
-        card.querySelector('[data-act="speak"]')?.addEventListener('click', () => {
+        const sourceLang = sourceEl.closest('[lang]')?.getAttribute('lang') || document.documentElement.lang || 'en';
+        card.querySelector('[data-act="speak-source"]')?.addEventListener('click', () => {
+          speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = sourceLang;
+          speechSynthesis.speak(utterance);
+        });
+        card.querySelector('[data-act="speak-target"]')?.addEventListener('click', () => {
+          speechSynthesis.cancel();
           const utterance = new SpeechSynthesisUtterance(translated);
           utterance.lang = target;
           speechSynthesis.speak(utterance);
         });
         card.querySelector('[data-act="close"]')?.addEventListener('click', closeCard);
       } catch (error) {
+        hostEl?.setAttribute('data-tf-render', `error:${(error as Error).message}`);
         if (!card) return;
         (card.querySelector('.text') as HTMLElement).textContent = `翻译失败：${(error as Error).message}`;
       }
     };
 
     let lastSelectionTrigger = 0;
+    let lastKeyDebug: Record<string, unknown> | null = null;
     const translateSelection = (info: SelectionInfo) => {
       const now = Date.now();
       if (now - lastSelectionTrigger < 250) return;
@@ -393,6 +406,7 @@ export default defineContentScript({
 
     const setAmbient = (text: string, percent: number, actionLabel: string, action: () => void) => {
       const el = ensureAmbient();
+      el.classList.remove('compact');
       el.classList.toggle('dark', document.documentElement.classList.contains('tf-dark'));
       (el.querySelector('.amb-text') as HTMLElement).textContent = text;
       (el.querySelector('.amb-pct') as HTMLElement).textContent = `${Math.round(percent)}%`;
@@ -405,6 +419,7 @@ export default defineContentScript({
 
     const hideAmbient = (delay = 0) => {
       if (!ambient) return;
+      ambient.classList.remove('compact');
       window.setTimeout(() => {
         ambient?.classList.remove('show');
       }, delay);
@@ -418,13 +433,14 @@ export default defineContentScript({
       pageJob.active = false;
       const kept = pageJob.done;
       setAmbient(`已停止 · 保留 ${kept} 段`, 100, '还原', restorePage);
-      hideAmbient(5000);
+      window.setTimeout(() => ambient?.classList.add('compact'), 2500);
     };
 
     const restorePage = () => {
       pageJob?.controller.abort();
       const removed = clearBlocks();
       pageJob = null;
+      hostEl?.removeAttribute('data-tf-page');
       hideAmbient();
       showToast(removed > 0 ? '已还原原文' : '没有可还原的内容');
     };
@@ -475,6 +491,7 @@ export default defineContentScript({
         active: true,
       };
       pageJob = job;
+      hostEl?.setAttribute('data-tf-page', 'translating');
 
       const started = performance.now();
       setAmbient(`正在翻译 · 0/${unique.length} 段`, 0, '取消', cancelPage);
@@ -541,8 +558,9 @@ export default defineContentScript({
         job.failed > 0
           ? `完成 ${job.done} 段，${job.failed} 段失败`
           : `已翻译 ${job.done} 段 · ${seconds}s`;
+      hostEl?.setAttribute('data-tf-page', 'translated');
       setAmbient(label, 100, '还原', restorePage);
-      hideAmbient(8000);
+      window.setTimeout(() => ambient?.classList.add('compact'), 2500);
       if (totalFound > blocks.length) {
         showToast(`内容较多，已翻译前 ${blocks.length} 段`);
       }
@@ -671,44 +689,114 @@ export default defineContentScript({
       }
     });
 
+    interface ShortcutPayload {
+      key: string;
+      code?: string;
+      ctrlKey: boolean;
+      altKey: boolean;
+      shiftKey: boolean;
+      metaKey: boolean;
+      isComposing?: boolean;
+      /** Captured by the MAIN-world bridge before the page can clear the selection. */
+      text?: string;
+      rect?: { left: number; top: number; right: number; bottom: number; width: number; height: number };
+      at?: number;
+    }
+
+    const handleShortcutPayload = (
+      payload: ShortcutPayload,
+      originalEvent?: KeyboardEvent,
+      target?: EventTarget | null,
+    ) => {
+      const effectiveTarget = target ?? document.activeElement;
+      const bridgeInfo: SelectionInfo | null =
+        payload.text && payload.rect
+          ? {
+              text: payload.text,
+              rect: payload.rect as unknown as DOMRect,
+              el: document.body,
+              range: document.createRange(),
+            }
+          : null;
+      lastKeyDebug = {
+        key: payload.key,
+        code: payload.code,
+        target: (effectiveTarget as HTMLElement)?.tagName,
+        editable: isEditable(effectiveTarget),
+        composing: Boolean(payload.isComposing),
+        prevented: originalEvent?.defaultPrevented ?? false,
+        trigger: settingsCache?.selection.trigger,
+        keys: settingsCache?.selection.keys,
+        selectionLength: bridgeInfo?.text.length ?? window.getSelection()?.toString().trim().length ?? 0,
+        via: originalEvent ? 'keydown' : 'bridge',
+        at: Date.now(),
+      };
+      if (payload.isComposing || isEditable(effectiveTarget)) return;
+
+      const settings = settingsCache;
+      if (!settings) {
+        // Settings may still be loading on a cold service worker. Re-check once
+        // it arrives so an early keypress is not silently ignored.
+        void getSettings()
+          .then((loaded) => {
+            if (!loaded.selection.enabled || loaded.selection.trigger === 'button') return;
+            if (!matchesShortcut(payload, loaded.selection.keys)) return;
+            const info = bridgeInfo ?? readSelection();
+            if (info) translateSelection(info);
+          })
+          .catch(() => null);
+        return;
+      }
+      if (!settings.selection.enabled) return;
+      if (settings.selection.trigger === 'button') return;
+      if (!matchesShortcut(payload, settings.selection.keys)) return;
+      lastKeyDebug.matched = true;
+      const info = bridgeInfo ?? readSelection();
+      if (!info) return;
+      originalEvent?.preventDefault();
+      originalEvent?.stopPropagation();
+      translateSelection(info);
+    };
+
     window.addEventListener(
       'keydown',
       (event) => {
-        if (event.defaultPrevented || event.isComposing || isEditable(event.target)) return;
-        const shortcutEvent = {
-          key: event.key,
-          code: event.code,
-          ctrlKey: event.ctrlKey,
-          altKey: event.altKey,
-          shiftKey: event.shiftKey,
-          metaKey: event.metaKey,
-        };
-
-        const settings = settingsCache;
-        if (!settings) {
-          // Settings may still be loading on a cold service worker. Re-check once
-          // it arrives so an early keypress is not silently ignored.
-          void getSettings()
-            .then((loaded) => {
-              if (!loaded.selection.enabled || loaded.selection.trigger === 'button') return;
-              if (!matchesShortcut(shortcutEvent, loaded.selection.keys)) return;
-              const info = readSelection();
-              if (info) translateSelection(info);
-            })
-            .catch(() => null);
-          return;
-        }
-        if (!settings.selection.enabled) return;
-        if (settings.selection.trigger === 'button') return;
-        if (!matchesShortcut(shortcutEvent, settings.selection.keys)) return;
-        const info = readSelection();
-        if (!info) return;
-        event.preventDefault();
-        event.stopPropagation();
-        translateSelection(info);
+        handleShortcutPayload(
+          {
+            key: event.key,
+            code: event.code,
+            ctrlKey: event.ctrlKey,
+            altKey: event.altKey,
+            shiftKey: event.shiftKey,
+            metaKey: event.metaKey,
+            isComposing: event.isComposing,
+          },
+          event,
+          event.target,
+        );
       },
       true,
     );
+
+    // Early MAIN-world bridge (see keybridge.ts): covers sites that stop keydown
+    // propagation before isolated-world listeners run.
+    let lastBridgeRaw = '';
+    const checkBridge = () => {
+      const raw = document.documentElement.dataset.tfKeyPress;
+      if (!raw || raw === lastBridgeRaw) return;
+      lastBridgeRaw = raw;
+      try {
+        const data = JSON.parse(raw) as ShortcutPayload;
+        handleShortcutPayload(data, undefined, document.activeElement);
+      } catch {
+        // Ignore malformed page data.
+      }
+    };
+    new MutationObserver(checkBridge).observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-tf-key-press'],
+    });
+    window.setInterval(checkBridge, 150);
 
     // Wake the MV3 service worker on page load so settings/cache requests are warm.
     try {
@@ -746,6 +834,18 @@ export default defineContentScript({
           sendResponse({ ok: true, data: { text } });
           return;
         }
+        if (message.type === 'page-status') {
+          sendResponse({
+            ok: true,
+            data: {
+              translated: countBlocks() > 0,
+              active: Boolean(pageJob?.active),
+              done: pageJob?.done ?? 0,
+              total: pageJob?.total ?? 0,
+            },
+          });
+          return;
+        }
         if (message.type === 'diagnose') {
           const selection = readSelection();
           sendResponse({
@@ -763,6 +863,13 @@ export default defineContentScript({
               hasSelection: Boolean(selection),
               selectionLength: selection?.text.length ?? 0,
               href: location.href,
+              lastKey: lastKeyDebug,
+              bridgeAttr: document.documentElement.dataset.tfKeyPress ?? null,
+              bridgeRaw: lastBridgeRaw,
+              render: hostEl?.dataset.tfRender ?? null,
+              hostConnected: Boolean(hostEl?.isConnected),
+              hasCard: Boolean(card),
+              bubbleAttr: hostEl?.dataset.tfBubble ?? null,
             },
           });
           return;

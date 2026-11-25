@@ -28,6 +28,7 @@ export default function App() {
     hasSelection: boolean;
   } | null>(null);
   const [tabId, setTabId] = useState<number | null>(null);
+  const [pageStatus, setPageStatus] = useState<{ translated: boolean; active: boolean; done: number; total: number } | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -57,6 +58,10 @@ export default function App() {
           | { ok: boolean; data?: { version: string; settings: { enabled: boolean; trigger: string; keys: string } | null; hasSelection: boolean } }
           | null;
         if (response?.ok && response.data) setDiag(response.data);
+        const status = (await chrome.tabs.sendMessage(tab.id, { type: 'page-status' })) as
+          | { ok: boolean; data?: { translated: boolean; active: boolean; done: number; total: number } }
+          | null;
+        if (status?.ok && status.data) setPageStatus(status.data);
       } catch {
         setDiag(null);
       }
@@ -202,19 +207,32 @@ export default function App() {
         </div>
         <div className="text">{result || '译文会显示在这里'}</div>
         <div className="acts">
-          <button onClick={() => void copy()} disabled={!result}>
-            复制
+          <button
+            onClick={() => {
+              if (!text.trim()) return;
+              speechSynthesis.cancel();
+              const utterance = new SpeechSynthesisUtterance(text.trim());
+              utterance.lang = from === 'auto' ? document.documentElement.lang || 'en' : from;
+              speechSynthesis.speak(utterance);
+            }}
+            disabled={!text.trim()}
+          >
+            朗读原文
           </button>
           <button
             onClick={() => {
               if (!result) return;
+              speechSynthesis.cancel();
               const utterance = new SpeechSynthesisUtterance(result);
               utterance.lang = to === 'zh' ? 'zh-CN' : to;
               speechSynthesis.speak(utterance);
             }}
             disabled={!result}
           >
-            朗读
+            朗读译文
+          </button>
+          <button onClick={() => void copy()} disabled={!result}>
+            复制
           </button>
           <span className="grow" />
           <button onClick={() => chrome.runtime.openOptionsPage()}>设置</button>
@@ -225,6 +243,21 @@ export default function App() {
         <div className="hint">
           当前是模拟渠道，仅用于演示。<a onClick={() => chrome.runtime.openOptionsPage()}>配置火山引擎</a>
         </div>
+      )}
+
+      {pageStatus?.active && <div className="page-state">页面翻译中… {pageStatus.done}/{pageStatus.total}</div>}
+      {pageStatus?.translated && !pageStatus.active && (
+        <button
+          className="restore-page"
+          onClick={async () => {
+            if (tabId == null) return;
+            await chrome.tabs.sendMessage(tabId, { type: 'page-restore' }).catch(() => null);
+            setPageStatus({ translated: false, active: false, done: 0, total: 0 });
+            window.close();
+          }}
+        >
+          还原全页译文
+        </button>
       )}
 
       <div className="tabs">
