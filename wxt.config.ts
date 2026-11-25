@@ -10,6 +10,7 @@ export default defineConfig({
     description: '快速、开源的双语网页翻译扩展：整页双语、划词、输入框翻译。',
     permissions: ['storage', 'activeTab', 'scripting', 'contextMenus'],
     host_permissions: ['<all_urls>'],
+    optional_permissions: ['management'],
     commands: {
       'translate-selection': {
         suggested_key: { default: 'Alt+S' },

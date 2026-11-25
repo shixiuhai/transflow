@@ -93,7 +93,9 @@ export default function App() {
   const [target, setTarget] = useState('zh');
   const [mode, setMode] = useState<PageMode>('blend');
   const [selectionTrigger, setSelectionTrigger] = useState<'button' | 'shortcut' | 'both'>('both');
-  const [selectionKeys, setSelectionKeys] = useState('alt+s');
+  const [selectionKeys, setSelectionKeys] = useState('t');
+  const [others, setOthers] = useState<{ id: string; name: string; version: string }[]>([]);
+  const [manageState, setManageState] = useState<'unknown' | 'ready' | 'denied'>('unknown');
   const [glossaryText, setGlossaryText] = useState('');
   const [usage, setUsage] = useState<{ total: number; byProvider: Record<string, number> } | null>(null);
   const [configs, setConfigs] = useState<Record<string, ProviderConfig>>({});
@@ -159,6 +161,39 @@ export default function App() {
     setWizardDone(true);
     setWizardStep(null);
   };
+
+  const scanOthers = async () => {
+    const all = await chrome.management.getAll();
+    setOthers(
+      all
+        .filter((item) => item.id !== chrome.runtime.id && /译流|TransFlow/i.test(item.name))
+        .map((item) => ({ id: item.id, name: item.name, version: item.version })),
+    );
+    setManageState('ready');
+  };
+
+  const enableManage = async () => {
+    const granted = await chrome.permissions.request({ permissions: ['management'] });
+    if (granted) await scanOthers();
+    else setManageState('denied');
+  };
+
+  const removeOther = async (id: string) => {
+    try {
+      await chrome.management.uninstall(id, { showConfirmDialog: true });
+      await scanOthers();
+      setStatus({ kind: 'ok', text: '已移除旧版本' });
+    } catch (error) {
+      setStatus({ kind: 'err', text: (error as Error).message });
+    }
+  };
+
+  useEffect(() => {
+    void (async () => {
+      const granted = await chrome.permissions.contains({ permissions: ['management'] });
+      if (granted) await scanOthers();
+    })();
+  }, []);
 
   const save = async () => {
     setBusy(true);
@@ -436,7 +471,7 @@ export default function App() {
           </div>
         </div>
         <div className="hint">
-          点一下输入框再按组合键即可录制。默认是字母 T（小写 t 直接按即可）；也可以录 R 或组合键。单键可能和网页输入冲突，组合键更稳妥。浏览器全局 Alt+S 仍然可用。
+          点一下输入框再按组合键即可录制。默认是字母 t（直接按小写 t；输入法处于中文组合状态时可能不触发，可先用 Alt+t）。也可以录 r 或组合键。若同时看到 1.1.x 旧版，请在 chrome://extensions 移除旧版（ID 以 dnag 开头）。
         </div>
         <div className="actions">
           <button className="btn primary" onClick={() => void save()} disabled={busy}>保存划词设置</button>
@@ -478,6 +513,31 @@ export default function App() {
         ) : (
           <div className="hint">加载中…</div>
         )}
+      </div>
+
+
+      <div className="card">
+        <h2>版本检查</h2>
+        <p className="desc">Chrome 不会自动合并不同 ID 的旧版本。若同时看到 1.1.x 和 1.2.x，可在这里移除旧版。</p>
+        {manageState === 'ready' ? (
+          others.length > 0 ? (
+            others.map((item) => (
+              <div className="ext-row" key={item.id}>
+                <div>
+                  <b>{item.name}</b>
+                  <span>{item.version} · {item.id}</span>
+                </div>
+                <button className="btn" onClick={() => void removeOther(item.id)}>移除旧版</button>
+              </div>
+            ))
+          ) : (
+            <div className="hint">未检测到其它版本的译流扩展。</div>
+          )
+        ) : (
+          <button className="btn" onClick={() => void enableManage()}>检查旧版本</button>
+        )}
+        {manageState === 'denied' && <div className="status err">未授予权限。也可手动打开 chrome://extensions 移除旧版。</div>}
+        <div className="hint">移除后请保留当前 1.2.x（ID 以 hpdl 开头），旧版 ID 以 dnag 开头。</div>
       </div>
 
       <div className="card">

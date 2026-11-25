@@ -4,9 +4,9 @@
 > 命令：`pnpm smoke`（约 20–30 秒）
 > 依赖：Chrome for Testing / Chromium（支持 `--load-extension`），默认路径见 `scripts/smoke.sh`，可用 `CHROME_BIN` 覆盖。
 
-## 自动化覆盖（24 项）
+## 自动化覆盖（25 项）
 
-`pnpm smoke` 在干净 profile 中加载扩展、启动 fixture 与本地 mock AI，通过 service worker 触发翻译并断言 DOM；当前 24 项全绿。
+`pnpm smoke` 在干净 profile 中加载扩展、启动 fixture 与本地 mock AI，通过 service worker 触发翻译并断言 DOM；当前 25 项全绿。
 
 | # | 检查 | 断言 |
 |---|---|---|
@@ -34,6 +34,7 @@
 | 22 | 慢请求取消 | 1.5s 延迟下取消，1.7s 后 0 个残留块 |
 | 23 | 自定义快捷键划词 | 设置 `t` 后选中并按键，悬浮气泡打开并带 placement |
 | 24 | Esc 关闭气泡 | 按键后气泡关闭 |
+| 25 | IME Process 兜底 | `key=Process` + `code=KeyT` 仍弹气泡 |
 
 ## 20 条验收矩阵
 

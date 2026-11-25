@@ -22,6 +22,14 @@ describe('settings merge', () => {
     expect(settings.version).toBe(2);
   });
 
+  it('migrates alt+s even when the stored version is already 2', () => {
+    const settings = normalizeSettings({
+      version: 2,
+      selection: { enabled: true, target: 'zh', trigger: 'both', keys: 'alt+s' },
+    });
+    expect(settings.selection.keys).toBe('t');
+  });
+
   it('keeps a customized shortcut', () => {
     const settings = normalizeSettings({
       version: 1,

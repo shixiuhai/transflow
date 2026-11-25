@@ -1,5 +1,6 @@
 export interface ShortcutEventLike {
   key: string;
+  code?: string;
   ctrlKey: boolean;
   altKey: boolean;
   shiftKey: boolean;
@@ -10,8 +11,15 @@ const MODIFIER_KEYS = new Set(['control', 'alt', 'shift', 'meta', 'capslock', 'o
 
 /** Normalize a keyboard event into a stable string such as `alt+s` or `t`. */
 export function normalizeShortcut(event: ShortcutEventLike): string | null {
-  if (!event.key || event.key === 'Escape' || MODIFIER_KEYS.has(event.key.toLowerCase())) return null;
-  let key = event.key.toLowerCase();
+  let rawKey = event.key;
+  // IMEs report Process/Unidentified for the physical key; fall back to `code`.
+  if (!rawKey || rawKey === 'Process' || rawKey === 'Unidentified') {
+    if (event.code?.startsWith('Key')) rawKey = event.code.slice(3).toLowerCase();
+    else if (event.code?.startsWith('Digit')) rawKey = event.code.slice(5);
+    else return null;
+  }
+  if (rawKey === 'Escape' || MODIFIER_KEYS.has(rawKey.toLowerCase())) return null;
+  let key = rawKey.toLowerCase();
   if (key === ' ') key = 'space';
   if (key === '+') key = 'plus';
   const parts: string[] = [];

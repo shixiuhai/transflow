@@ -71,9 +71,9 @@ export function normalizeSettings(raw: unknown): Settings {
   const sourceVersion = isPlain(raw) && typeof raw.version === 'number' ? raw.version : 0;
   const merged = mergeSettings(DEFAULT_SETTINGS, raw);
 
-  // v2: the default selection trigger became the lowercase `t` key. Only migrate
-  // the old untouched default (`alt+s` + both) so custom bindings are preserved.
-  if (sourceVersion < 2 && merged.selection.keys === 'alt+s' && merged.selection.trigger === 'both') {
+  // The old untouched default was `alt+s` + both. Migrate it to lowercase `t`
+  // even for settings saved by 1.1.x (which already wrote version 2).
+  if (merged.selection.keys === 'alt+s' && merged.selection.trigger === 'both') {
     merged.selection.keys = 't';
   }
 

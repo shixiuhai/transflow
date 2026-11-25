@@ -66,3 +66,7 @@ body { background: var(--tf-bg-soft); min-height: 100vh; }
   background: var(--tf-bg); cursor: pointer; font-variant-numeric: tabular-nums;
 }
 .shortcut-input:focus { outline: none; border-color: var(--tf-accent); box-shadow: 0 0 0 3px var(--tf-accent-soft); }
+
+.ext-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--tf-line); }
+.ext-row b { display: block; font-size: 13px; }
+.ext-row span { display: block; font-size: 11px; color: var(--tf-faint); margin-top: 2px; }

@@ -264,7 +264,8 @@ await page.evaluate(() => getSelection().removeAllRanges());
 
 // --- 20. configurable shortcut opens a floating bubble ---
 await page.keyboard.press('Escape');
-await patchSettings("v.selection = { enabled: true, target: 'zh', trigger: 'shortcut', keys: 't' };");
+// Deliberately write the legacy default; content/background should migrate it to t.
+await patchSettings("v.selection = { enabled: true, target: 'zh', trigger: 'both', keys: 'alt+s' };");
 await sleep(350);
 await page.evaluate(() => {
   (document.activeElement instanceof HTMLElement ? document.activeElement : null)?.blur();
@@ -285,13 +286,37 @@ const bubble = await page.evaluate(() => {
   const host = document.getElementById('transflow-root');
   return host ? { open: host.dataset.tfBubble, placement: host.dataset.tfPlacement } : null;
 });
-check('configured shortcut opens a bubble', Boolean(bubble) && bubble.open === 'open' && Boolean(bubble.placement), JSON.stringify(bubble));
+check('legacy alt+s migrates to t and opens a bubble', Boolean(bubble) && bubble.open === 'open' && Boolean(bubble.placement), JSON.stringify(bubble));
 await page.screenshot({ path: '/tmp/tf_bubble.png' });
 await page.keyboard.press('Escape');
 await sleep(250);
 const bubbleGone = await page.evaluate(() => !document.getElementById('transflow-root')?.dataset.tfBubble);
 check('Escape closes the bubble', bubbleGone);
-await patchSettings("v.selection = { enabled: true, target: 'zh', trigger: 'both', keys: 'alt+s' };");
+
+// IME fallback: key=Process + code=KeyT should still trigger the bubble.
+await page.evaluate(() => {
+  getSelection().removeAllRanges();
+  const p = document.querySelectorAll('article p')[2];
+  p.scrollIntoView({ block: 'center' });
+  const range = document.createRange();
+  range.selectNodeContents(p);
+  const selection = getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+});
+const cdp = await page.createCDPSession();
+await cdp.send('Input.dispatchKeyEvent', {
+  type: 'keyDown', key: 'Process', code: 'KeyT', windowsVirtualKeyCode: 84, nativeVirtualKeyCode: 84,
+});
+await cdp.send('Input.dispatchKeyEvent', {
+  type: 'keyUp', key: 'Process', code: 'KeyT', windowsVirtualKeyCode: 84, nativeVirtualKeyCode: 84,
+});
+await cdp.detach();
+await sleep(900);
+const imeBubble = await page.evaluate(() => document.getElementById('transflow-root')?.dataset.tfBubble === 'open');
+check('IME Process key falls back to physical KeyT', imeBubble);
+await page.keyboard.press('Escape');
+await patchSettings("v.selection = { enabled: true, target: 'zh', trigger: 'both', keys: 't' };");
 
 // --- 20. cancel stops applying translations ---
 await page.evaluate(() => window.scrollTo(0, 0));

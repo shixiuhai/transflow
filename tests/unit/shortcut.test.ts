@@ -11,6 +11,11 @@ describe('shortcut', () => {
     expect(normalizeShortcut({ ...base, key: 'k', ctrlKey: true, shiftKey: true })).toBe('ctrl+shift+k');
   });
 
+  it('falls back to physical code when an IME reports Process', () => {
+    expect(normalizeShortcut({ ...base, key: 'Process', code: 'KeyT' })).toBe('t');
+    expect(normalizeShortcut({ ...base, key: 'Unidentified', code: 'KeyR' })).toBe('r');
+  });
+
   it('ignores modifier-only keys and escape', () => {
     expect(normalizeShortcut({ ...base, key: 'Shift', shiftKey: true })).toBeNull();
     expect(normalizeShortcut({ ...base, key: 'Escape' })).toBeNull();

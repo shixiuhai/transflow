@@ -300,7 +300,11 @@ export default defineContentScript({
       positionCard(card, anchor);
 
       const opened = card;
+      const openedScrollY = window.scrollY;
       const onScroll = () => {
+        // Ignore the residual scroll event queued by scrollIntoView right before
+        // the bubble opened; only close on a real scroll.
+        if (Math.abs(window.scrollY - openedScrollY) < 8) return;
         window.removeEventListener('scroll', onScroll);
         if (card === opened) closeCard();
       };
@@ -671,10 +675,32 @@ export default defineContentScript({
       'keydown',
       (event) => {
         if (event.defaultPrevented || event.isComposing || isEditable(event.target)) return;
+        const shortcutEvent = {
+          key: event.key,
+          code: event.code,
+          ctrlKey: event.ctrlKey,
+          altKey: event.altKey,
+          shiftKey: event.shiftKey,
+          metaKey: event.metaKey,
+        };
+
         const settings = settingsCache;
-        if (!settings?.selection.enabled) return;
+        if (!settings) {
+          // Settings may still be loading on a cold service worker. Re-check once
+          // it arrives so an early keypress is not silently ignored.
+          void getSettings()
+            .then((loaded) => {
+              if (!loaded.selection.enabled || loaded.selection.trigger === 'button') return;
+              if (!matchesShortcut(shortcutEvent, loaded.selection.keys)) return;
+              const info = readSelection();
+              if (info) translateSelection(info);
+            })
+            .catch(() => null);
+          return;
+        }
+        if (!settings.selection.enabled) return;
         if (settings.selection.trigger === 'button') return;
-        if (!matchesShortcut(event, settings.selection.keys)) return;
+        if (!matchesShortcut(shortcutEvent, settings.selection.keys)) return;
         const info = readSelection();
         if (!info) return;
         event.preventDefault();
