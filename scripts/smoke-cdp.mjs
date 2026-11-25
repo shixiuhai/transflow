@@ -229,6 +229,48 @@ const perf = await longPage.evaluate(() => {
 check('1,000 block insertion under 500ms', perf.ms < 500, `${perf.ms}ms / ${perf.count} blocks`);
 await longPage.close();
 
+// --- 18. popup UI translates ---
+const popupUi = await browser.newPage();
+await popupUi.goto(`chrome-extension://${extensionId}/popup.html`, { waitUntil: 'domcontentloaded' });
+await popupUi.waitForSelector('textarea');
+await popupUi.evaluate(() => {
+  const textarea = document.querySelector('textarea');
+  const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+  setter?.call(textarea, 'hello ui');
+  textarea.dispatchEvent(new Event('input', { bubbles: true }));
+});
+await popupUi.click('.primary');
+await sleep(700);
+const popupResult = await popupUi.$eval('.result .text', (el) => el.textContent ?? '');
+check('popup UI translates text', popupResult.includes('模拟'), popupResult);
+await popupUi.close();
+
+// --- 19. selection translation records usage ---
+await page.evaluate(() => {
+  const p = document.querySelector('article p');
+  const range = document.createRange();
+  range.selectNodeContents(p);
+  const selection = getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+});
+const usageBefore = JSON.parse(await sw.eval(`chrome.storage.local.get('tf:usage').then((s) => JSON.stringify(s['tf:usage'] || { total: 0 }))`)).total;
+await sw.eval(`chrome.tabs.sendMessage(${tabId}, { type: 'selection-translate' })`);
+await sleep(700);
+const usageAfter = JSON.parse(await sw.eval(`chrome.storage.local.get('tf:usage').then((s) => JSON.stringify(s['tf:usage'] || { total: 0 }))`)).total;
+check('selection translation records usage', usageAfter > usageBefore, `${usageBefore} -> ${usageAfter}`);
+await page.evaluate(() => getSelection().removeAllRanges());
+
+// --- 20. cancel stops applying translations ---
+await page.evaluate(() => window.scrollTo(0, 0));
+const pending = sw.eval(`chrome.tabs.sendMessage(${tabId}, {type:'page-translate'})`);
+await sleep(30);
+await sw.eval(`chrome.tabs.sendMessage(${tabId}, {type:'page-restore'})`);
+await pending.catch(() => null);
+await sleep(500);
+const afterCancel = await page.evaluate(() => document.querySelectorAll('.tf-block').length);
+check('cancel/restore stops translation', afterCancel === 0, `${afterCancel} blocks left`);
+
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
 sw.close();
