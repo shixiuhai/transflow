@@ -111,7 +111,7 @@ Content (per page)
 
 ## 隐私
 
-不收集遥测、无账号、无自建服务器；译文只发送到你选择的渠道；密钥与缓存均在本机。详见 [PRIVACY.md](PRIVACY.md)。
+不收集遥测、无账号、无自建服务器；译文只发送到你选择的渠道；密钥与缓存均在本机。详见 [PRIVACY.md](PRIVACY.md) 或 [在线隐私政策](https://shixiuhai.github.io/transflow/privacy.html)。
 
 ## 许可
 

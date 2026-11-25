@@ -4,8 +4,10 @@
 
 - 开源双语网页翻译扩展（MV3），产品名 **译流 TransFlow**，MIT。
 - 代码目录：`/root/transflow`（本机唯一源码；旧的 `chrome_translate` 是前身，已不维护）。
-- 当前版本 **v1.0.0**（本地 tag，未发布；发布前 tag 会指向最终 release 提交）。
-- **尚未发布 GitHub**（仓库无 remote），**尚未上架 Chrome Web Store / Edge Add-ons**。
+- 当前版本 **v1.0.0**，已发布 GitHub Release。
+- **已发布 GitHub**：<https://github.com/shixiuhai/transflow>（public），v1.0.0 Release 附可安装 zip。
+- **尚未上架 Chrome Web Store / Edge Add-ons**（开发者控制台已打开待登录）。
+- 联系邮箱：`shixiuhai@shixiuhai.serv00.net`（Serv00）。
 
 ## 技术栈与目录
 
@@ -67,7 +69,7 @@ pnpm volc:e2e      # 扩展端到端（真实火山）
 
 ## 发布状态与下一步
 
-- **GitHub**：本地仓库完整，无 remote。发布需创建 `shixiuhai/transflow`（public）→ push → `v1.0.0` Release 附 `.output/transflow-1.0.0-chrome.zip`。
+- **GitHub**：已发布 <https://github.com/shixiuhai/transflow>；Release <https://github.com/shixiuhai/transflow/releases/tag/v1.0.0>；默认分支 main，commit 邮箱 `shixiuhai@shixiuhai.serv00.net`。
 - **Chrome Web Store**：需开发者账号（一次性 $5）、隐私政策 URL、≥1 张 1280×800 或 640×400 截图、权限用途说明；`<all_urls>` 会被重点审核。材料清单见 `docs/STORE.md`。
 - 可直接安装：加载 `.output/chrome-mv3`，或分发 `.output/transflow-1.0.0-chrome.zip`。
 

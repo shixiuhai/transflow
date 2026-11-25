@@ -2,8 +2,9 @@
 
 ## 当前状态
 
-- 本地已具备可安装包与全部源码；**尚未注册开发者账号、尚未提交**。
-- 没有 GitHub 仓库地址与公开隐私政策 URL（上架前必须先有）。
+- 已发布 GitHub：<https://github.com/shixiuhai/transflow>，Release 附 zip。
+- **尚未注册开发者账号、尚未提交**；Chrome 开发者控制台已打开待登录。
+- 公开隐私政策：<https://shixiuhai.github.io/transflow/privacy.html>（GitHub Pages，若 404 等 1–2 分钟构建）。
 
 ## Chrome Web Store 硬性要求（2026-11 核对）
 
