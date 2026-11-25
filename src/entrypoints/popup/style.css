@@ -42,3 +42,13 @@ body { width: 360px; }
 .tabs button.on { color: var(--tf-accent); font-weight: 600; background: var(--tf-accent-soft); }
 .hint { font-size: 11px; color: var(--tf-faint); padding: 6px 0 2px; }
 .hint a { color: var(--tf-accent); text-decoration: none; }
+
+.diag {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 10.5px; color: var(--tf-muted); background: var(--tf-bg-soft);
+  border: 1px solid var(--tf-line); border-radius: 8px; padding: 6px 9px; margin-bottom: 10px;
+}
+.diag.bad { color: var(--tf-danger); border-color: color-mix(in srgb, var(--tf-danger) 30%, transparent); }
+.diag.warn { color: var(--tf-warn); }
+.diag em { font-style: normal; font-size: 10px; }
+.diag button { margin-left: auto; border: 1px solid var(--tf-line); background: var(--tf-bg); border-radius: 6px; font-size: 10px; padding: 3px 7px; cursor: pointer; }

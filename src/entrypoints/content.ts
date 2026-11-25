@@ -671,7 +671,7 @@ export default defineContentScript({
       }
     });
 
-    document.addEventListener(
+    window.addEventListener(
       'keydown',
       (event) => {
         if (event.defaultPrevented || event.isComposing || isEditable(event.target)) return;
@@ -744,6 +744,27 @@ export default defineContentScript({
         if (message.type === 'get-selection') {
           const text = window.getSelection()?.toString().trim() ?? '';
           sendResponse({ ok: true, data: { text } });
+          return;
+        }
+        if (message.type === 'diagnose') {
+          const selection = readSelection();
+          sendResponse({
+            ok: true,
+            data: {
+              version: chrome.runtime.getManifest().version,
+              id: chrome.runtime.id,
+              settings: settingsCache
+                ? {
+                    enabled: settingsCache.selection.enabled,
+                    trigger: settingsCache.selection.trigger,
+                    keys: settingsCache.selection.keys,
+                  }
+                : null,
+              hasSelection: Boolean(selection),
+              selectionLength: selection?.text.length ?? 0,
+              href: location.href,
+            },
+          });
           return;
         }
         sendResponse({ ok: false, error: { code: 'unknown', message: '未知操作' } });

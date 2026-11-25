@@ -22,6 +22,12 @@ export default function App() {
   const [meta, setMeta] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [diag, setDiag] = useState<{
+    version: string;
+    settings: { enabled: boolean; trigger: string; keys: string } | null;
+    hasSelection: boolean;
+  } | null>(null);
+  const [tabId, setTabId] = useState<number | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -38,6 +44,22 @@ export default function App() {
       const selectionResponse = selection as RuntimeResponse<{ text: string }> | null;
       const selected = selectionResponse?.ok ? selectionResponse.data.text : '';
       if (selected) setText(selected);
+    })();
+  }, []);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tab?.id == null) return;
+        setTabId(tab.id);
+        const response = (await chrome.tabs.sendMessage(tab.id, { type: 'diagnose' })) as
+          | { ok: boolean; data?: { version: string; settings: { enabled: boolean; trigger: string; keys: string } | null; hasSelection: boolean } }
+          | null;
+        if (response?.ok && response.data) setDiag(response.data);
+      } catch {
+        setDiag(null);
+      }
     })();
   }, []);
 
@@ -106,6 +128,32 @@ export default function App() {
           <i className="dot" />
           {settings ? providerLabel(settings.provider.active) : '加载中'}
         </div>
+      </div>
+
+      <div className={`diag ${!diag ? 'bad' : diag.settings?.trigger === 'button' ? 'warn' : ''}`}>
+        {diag ? (
+          <>
+            <span>
+              页面脚本 v{diag.version} · {diag.settings?.trigger ?? '?'} / {diag.settings?.keys ?? '?'}
+              {diag.hasSelection ? ' · 已选中' : ''}
+            </span>
+            {diag.version !== chrome.runtime.getManifest().version && (
+              <em>页面脚本与当前扩展版本不一致，可能旧版仍在运行</em>
+            )}
+            {diag.settings?.trigger === 'button' && <em>当前为“仅浮标”，按 t 不会触发</em>}
+            <button
+              onClick={async () => {
+                if (tabId == null) return;
+                await chrome.tabs.sendMessage(tabId, { type: 'selection-translate' }).catch(() => null);
+                window.close();
+              }}
+            >
+              测试划词
+            </button>
+          </>
+        ) : (
+          <span>当前页面未注入脚本（chrome:// 页面或扩展被禁用）</span>
+        )}
       </div>
 
       <div className="langrow">

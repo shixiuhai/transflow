@@ -293,6 +293,13 @@ await sleep(250);
 const bubbleGone = await page.evaluate(() => !document.getElementById('transflow-root')?.dataset.tfBubble);
 check('Escape closes the bubble', bubbleGone);
 
+const diag = await sw.eval(`chrome.tabs.sendMessage(${tabId}, {type:'diagnose'})`);
+check(
+  'diagnose reports page script and settings',
+  Boolean(diag?.ok) && Boolean(diag.data?.version) && diag.data.settings?.keys === 't',
+  JSON.stringify(diag?.data ?? diag),
+);
+
 // IME fallback: key=Process + code=KeyT should still trigger the bubble.
 await page.evaluate(() => {
   getSelection().removeAllRanges();

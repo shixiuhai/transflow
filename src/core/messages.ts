@@ -12,6 +12,7 @@ export type RuntimeMessage =
   | { type: 'selection-translate' }
   | { type: 'input-translate' }
   | { type: 'get-selection' }
+  | { type: 'diagnose' }
   | { type: 'ping' };
 
 export interface TranslateSuccess {
