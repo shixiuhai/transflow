@@ -2,11 +2,14 @@ import type { TranslationProvider, ProviderConfig } from './types';
 import { createMockProvider } from './adapters/mock';
 import { createVolcProvider } from './adapters/volc';
 import { createOpenAIProvider } from './adapters/openai';
+import { createBaiduProvider } from './adapters/baidu';
 
 export function createProvider(id: string, config: ProviderConfig = {}): TranslationProvider {
   switch (id) {
     case 'volc':
       return createVolcProvider(config);
+    case 'baidu':
+      return createBaiduProvider(config);
     case 'openai':
       return createOpenAIProvider(config);
     case 'mock':

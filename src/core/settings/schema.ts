@@ -1,4 +1,5 @@
 import type { ProviderConfig } from '../provider/types';
+import type { GlossaryEntry } from '../glossary';
 
 export type PageMode = 'blend' | 'card' | 'mask' | 'replace';
 
@@ -20,6 +21,7 @@ export interface Settings {
   selection: { enabled: boolean; target: string };
   input: { enabled: boolean };
   ui: { theme: 'auto' | 'light' | 'dark'; reduceMotion: boolean };
+  glossary: { entries: GlossaryEntry[] };
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -40,6 +42,7 @@ export const DEFAULT_SETTINGS: Settings = {
   selection: { enabled: true, target: 'zh' },
   input: { enabled: true },
   ui: { theme: 'auto', reduceMotion: false },
+  glossary: { entries: [] },
 };
 
 type Plain = Record<string, unknown>;

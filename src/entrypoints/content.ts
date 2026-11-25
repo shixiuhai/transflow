@@ -433,6 +433,99 @@ export default defineContentScript({
       }
     };
 
+
+    // ---------- input-box translation ----------
+
+    const editableOf = (target: EventTarget | null): HTMLElement | null => {
+      const el = target as HTMLElement | null;
+      if (!el) return null;
+      if (el instanceof HTMLTextAreaElement) return el;
+      if (el instanceof HTMLInputElement) {
+        const type = el.type.toLowerCase();
+        if (['text', 'search', 'url', 'email', 'tel'].includes(type)) return el;
+        return null;
+      }
+      return el.isContentEditable ? el : null;
+    };
+
+    const readEditable = (el: HTMLElement): string => {
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return el.value;
+      return el.innerText.replace(/\u00a0/g, ' ');
+    };
+
+    const writeEditable = (el: HTMLElement, text: string) => {
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+        const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+        const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+        setter?.call(el, text);
+      } else {
+        el.textContent = text;
+      }
+      el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+    };
+
+    let lastReplace: { el: HTMLElement; original: string; at: number } | null = null;
+    let lastSpaceAt = 0;
+    let lastSpaceTarget: EventTarget | null = null;
+    let lastSpaceTimer: number | null = null;
+
+    const translateEditable = async (el: HTMLElement | null) => {
+      if (!el) {
+        showToast('请先聚焦一个输入框');
+        return;
+      }
+      const original = readEditable(el).trim();
+      if (original.length < 2) return;
+      if (original.length > 5000) {
+        showToast('输入内容超过 5000 字');
+        return;
+      }
+      const settings = await getSettings().catch(() => null);
+      const target = settings?.selection.target || settings?.language.target || 'zh';
+      showToast('翻译中…');
+      try {
+        const response = await sendTranslate([{ id: 'input', text: original }], 'auto', target);
+        if (!response.ok) {
+          showToast(`翻译失败：${response.error.message}`);
+          return;
+        }
+        const translated = response.data.results[0]?.text ?? '';
+        if (!translated) return;
+        lastReplace = { el, original: readEditable(el), at: Date.now() };
+        writeEditable(el, translated);
+        showToast('已翻译 · ⌘Z 撤销');
+      } catch (error) {
+        showToast(`翻译失败：${(error as Error).message}`);
+      }
+    };
+
+    document.addEventListener('keydown', (event) => {
+      const el = editableOf(event.target);
+      if (el && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+        if (lastReplace && lastReplace.el === el && Date.now() - lastReplace.at < 10000) {
+          event.preventDefault();
+          writeEditable(el, lastReplace.original);
+          lastReplace = null;
+          showToast('已撤销');
+          return;
+        }
+      }
+
+      if (event.key === ' ' && el) {
+        const now = Date.now();
+        if (lastSpaceTarget === el && now - lastSpaceAt < 400) {
+          event.preventDefault();
+          lastSpaceAt = 0;
+          lastSpaceTarget = null;
+          if (lastSpaceTimer) window.clearTimeout(lastSpaceTimer);
+          void translateEditable(el);
+          return;
+        }
+        lastSpaceAt = now;
+        lastSpaceTarget = el;
+      }
+    });
+
     // ---------- events ----------
 
     document.addEventListener('mouseup', (event) => {
@@ -487,7 +580,7 @@ export default defineContentScript({
           return;
         }
         if (message.type === 'input-translate') {
-          showToast('输入框翻译将在下一版本接入');
+          await translateEditable(editableOf(document.activeElement));
           sendResponse({ ok: true, data: null });
           return;
         }

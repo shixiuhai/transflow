@@ -3,6 +3,8 @@ import type { RuntimeMessage, RuntimeResponse, TranslateSuccess } from '../core/
 import { loadSettings, saveSettings } from '../core/settings/store';
 import { createProvider } from '../core/provider/registry';
 import { ProviderError, type ProviderConfig } from '../core/provider/types';
+import { protectTerms, restoreTerms } from '../core/glossary';
+import { recordUsage } from '../core/usage';
 
 async function sendToActiveTab(message: unknown): Promise<void> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -81,15 +83,27 @@ export default defineBackground(() => {
             const settings = await loadSettings();
             const order = [settings.provider.active, ...settings.provider.fallback].filter(Boolean);
             let lastError: unknown = null;
+            const entries = settings.glossary?.entries ?? [];
+            const protectedSegments = entries.length
+              ? message.segments.map((segment) => ({ ...segment, text: protectTerms(segment.text, entries) }))
+              : message.segments;
+
             for (const id of order) {
               try {
                 const data = await translateOnce(
                   id,
                   settings.provider.configs[id] ?? {},
-                  message.segments,
+                  protectedSegments,
                   message.from,
                   message.to,
                 );
+                if (entries.length) {
+                  data.results = data.results.map((result) => ({
+                    ...result,
+                    text: restoreTerms(result.text, entries),
+                  }));
+                }
+                await recordUsage(id, message.segments.reduce((sum, segment) => sum + segment.text.length, 0));
                 sendResponse({ ok: true, data } satisfies RuntimeResponse);
                 return;
               } catch (error) {

@@ -3,6 +3,8 @@ import type { ProviderConfig } from '../../core/provider/types';
 import type { Settings } from '../../core/settings/schema';
 import type { RuntimeMessage, RuntimeResponse } from '../../core/messages';
 import { LANGUAGES } from '../../core/lang';
+import { formatGlossary, parseGlossary } from '../../core/glossary';
+import { estimateCost, getUsage } from '../../core/usage';
 import type { PageMode } from '../../core/settings/schema';
 
 const send = <T,>(message: RuntimeMessage) =>
@@ -28,6 +30,16 @@ const PROVIDERS: ProviderInfo[] = [
     ],
   },
   {
+    id: 'baidu',
+    name: '百度翻译',
+    free: '高级版每月 100 万字符免费 · 超出 49 元/百万',
+    keyUrl: 'https://fanyi-api.baidu.com/access/0/1',
+    fields: [
+      { key: 'appId', label: 'APPID', placeholder: '2024…' },
+      { key: 'apiKey', label: '密钥', placeholder: '只保存在本机', secret: true },
+    ],
+  },
+  {
     id: 'openai',
     name: 'OpenAI 兼容',
     free: 'DeepSeek / GLM / Qwen 等，按 token 计费',
@@ -50,6 +62,8 @@ export default function App() {
   const [active, setActive] = useState('volc');
   const [target, setTarget] = useState('zh');
   const [mode, setMode] = useState<PageMode>('blend');
+  const [glossaryText, setGlossaryText] = useState('');
+  const [usage, setUsage] = useState<{ total: number; byProvider: Record<string, number> } | null>(null);
   const [configs, setConfigs] = useState<Record<string, ProviderConfig>>({});
   const [status, setStatus] = useState<{ kind: 'ok' | 'err' | 'info'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -63,7 +77,10 @@ export default function App() {
         setConfigs(response.data.provider.configs);
         setTarget(response.data.language.target);
         setMode(response.data.page.mode);
+        setGlossaryText(formatGlossary(response.data.glossary.entries));
       }
+      const current = await getUsage();
+      setUsage({ total: current.total, byProvider: current.byProvider });
     })();
   }, []);
 
@@ -84,6 +101,7 @@ export default function App() {
           provider: { active, fallback: [], configs },
           language: { ...(settings?.language ?? { source: 'auto', target }), target },
           page: { ...(settings?.page ?? { mode, autoTranslate: false, maxSegments: 2000, includeIframes: false, rules: [] }), mode },
+          glossary: { entries: parseGlossary(glossaryText) },
         } as unknown as Partial<Settings>,
       });
       if (!response.ok) throw new Error(response.error.message);
@@ -213,6 +231,42 @@ export default function App() {
           <button className="btn primary" onClick={() => void save()} disabled={busy}>保存偏好</button>
           {status && <span className={`status ${status.kind}`}>{status.text}</span>}
         </div>
+      </div>
+
+      <div className="card">
+        <h2>术语表</h2>
+        <p className="desc">每行一条「原文=译文」，大小写不敏感，长词优先。翻译前会替换为占位符，译后还原。</p>
+        <textarea
+          className="glossary"
+          value={glossaryText}
+          onChange={(e) => setGlossaryText(e.target.value)}
+          placeholder={"Transformer=变换器\nRAG=检索增强生成"}
+          spellCheck={false}
+        />
+        <div className="actions">
+          <button className="btn primary" onClick={() => void save()} disabled={busy}>保存术语表</button>
+          {status && <span className={`status ${status.kind}`}>{status.text}</span>}
+        </div>
+      </div>
+
+      <div className="card">
+        <h2>本月用量</h2>
+        <p className="desc">只在本机统计，不上传。费用为按公开单价的粗略估算。</p>
+        {usage ? (
+          <div className="usage">
+            <div className="usage-total">{usage.total.toLocaleString()} 字符</div>
+            {Object.entries(usage.byProvider).map(([id, chars]) => (
+              <div className="usage-row" key={id}>
+                <span>{PROVIDERS.find((p) => p.id === id)?.name ?? id}</span>
+                <span>{chars.toLocaleString()} 字符</span>
+                <span>{estimateCost(id, chars) > 0 ? `约 ¥${estimateCost(id, chars).toFixed(2)}` : '免费额度内'}</span>
+              </div>
+            ))}
+            {Object.keys(usage.byProvider).length === 0 && <div className="hint">本月还没有翻译记录</div>}
+          </div>
+        ) : (
+          <div className="hint">加载中…</div>
+        )}
       </div>
 
       <div className="card">

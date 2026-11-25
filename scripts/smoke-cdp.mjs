@@ -47,6 +47,8 @@ async function connectSw(sw) {
   };
 }
 
+let extensionId = '';
+
 async function swClient() {
   const list = await (await fetch(`${DEBUG}/json/list`)).json();
   const sws = list.filter((t) => t.type === 'service_worker');
@@ -55,6 +57,7 @@ async function swClient() {
     const name = await client.eval('chrome.runtime.getManifest().name').catch(() => '');
     if (name && (name.includes('TransFlow') || name.includes('译流'))) {
       console.log('using extension', name, sw.url);
+      extensionId = new URL(sw.url).host;
       return client;
     }
     client.close();
@@ -102,6 +105,38 @@ const after = await page.evaluate(() => ({
   first: document.querySelector('article p')?.textContent?.slice(0, 40),
 }));
 console.log('restored', restored, after);
+
+// input-box translation: type, double space, undo
+await page.click('#editor');
+await page.keyboard.type('hello world');
+await page.keyboard.press('Space');
+await page.keyboard.press('Space');
+await sleep(900);
+const inputValue = await page.$eval('#editor', (el) => el.value);
+console.log('input translation:', inputValue);
+await page.keyboard.down('Control');
+await page.keyboard.press('KeyZ');
+await page.keyboard.up('Control');
+await sleep(250);
+const undone = await page.$eval('#editor', (el) => el.value);
+console.log('input undo:', undone);
+
+// glossary: hello -> 你好 should survive the mock round-trip
+await sw.eval(`chrome.storage.local.get('settings').then((s) => {
+  const v = s.settings || {};
+  v.provider = { active: 'mock', fallback: [], configs: {} };
+  v.glossary = { entries: [{ source: 'hello', target: '你好' }] };
+  return chrome.storage.local.set({ settings: v });
+})`);
+const popup = await browser.newPage();
+await popup.goto(`chrome-extension://${extensionId}/popup.html`, { waitUntil: 'domcontentloaded' });
+const glossary = await popup.evaluate(() =>
+  chrome.runtime.sendMessage({ type: 'translate', segments: [{ id: 'g', text: 'hello world' }], from: 'en', to: 'zh' }),
+);
+console.log('glossary:', JSON.stringify(glossary));
+
+const usage = await sw.eval(`chrome.storage.local.get('tf:usage').then((s) => JSON.stringify(s['tf:usage'] || null))`);
+console.log('usage:', usage);
 
 sw.close();
 await browser.disconnect();
