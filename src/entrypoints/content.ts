@@ -304,7 +304,7 @@ export default defineContentScript({
         <div class="quote"></div>
         <div class="divider"></div>
         <div class="text"><div class="skeleton" style="width:88%"></div><div class="skeleton" style="width:64%"></div></div>
-        <div class="row"><button data-act="speak-source">朗读原文</button><button data-act="speak-target">朗读译文</button><button data-act="copy">复制</button><button data-act="close">关闭</button><span class="spacer"></span><span class="meta">翻译中…</span></div>
+        <div class="row"><button data-act="vocab" disabled>＋单词本</button><button data-act="speak-source">朗读原文</button><button data-act="speak-target">朗读译文</button><button data-act="copy">复制</button><button data-act="close">关闭</button><span class="spacer"></span><span class="meta">翻译中…</span></div>
       `;
       (card.querySelector('.quote') as HTMLElement).textContent = text;
       styleCardFromPalette(card, samplePalette(sourceEl));
@@ -335,6 +335,41 @@ export default defineContentScript({
           metaEl.textContent = '已复制';
         });
         const sourceLang = sourceEl.closest('[lang]')?.getAttribute('lang') || document.documentElement.lang || 'en';
+        const vocabBtn = card.querySelector('[data-act="vocab"]') as HTMLButtonElement | null;
+        if (vocabBtn) {
+          vocabBtn.disabled = false;
+          vocabBtn.addEventListener('click', async () => {
+            vocabBtn.disabled = true;
+            vocabBtn.textContent = '加入中…';
+            const context = (sourceEl.closest('p, li, article, blockquote') as HTMLElement | null)?.innerText ?? '';
+            try {
+              const response = (await chrome.runtime.sendMessage({
+                type: 'vocab-add',
+                payload: {
+                  term: text,
+                  translation: translated,
+                  sourceLang,
+                  targetLang: target,
+                  context: context.slice(0, 500),
+                  url: location.href,
+                  title: document.title,
+                },
+              })) as { ok: boolean; data?: { added: boolean }; error?: { message: string } };
+              if (response?.ok) {
+                vocabBtn.textContent = response.data?.added ? '已加入' : '已更新';
+                showToast(response.data?.added ? '已加入单词本' : '单词本已更新');
+              } else {
+                vocabBtn.disabled = false;
+                vocabBtn.textContent = '＋单词本';
+                showToast(response?.error?.message ?? '加入失败');
+              }
+            } catch (error) {
+              vocabBtn.disabled = false;
+              vocabBtn.textContent = '＋单词本';
+              showToast(`加入失败：${(error as Error).message}`);
+            }
+          });
+        }
         card.querySelector('[data-act="speak-source"]')?.addEventListener('click', () => {
           speechSynthesis.cancel();
           const utterance = new SpeechSynthesisUtterance(text);

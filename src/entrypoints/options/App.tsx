@@ -6,6 +6,18 @@ import { LANGUAGES } from '../../core/lang';
 import { formatGlossary, parseGlossary } from '../../core/glossary';
 import { estimateCost, getUsage } from '../../core/usage';
 import { formatShortcut, normalizeShortcut } from '../../core/shortcut';
+import {
+  clearVocabLocal,
+  deleteVocabItem,
+  exportVocabCsv,
+  exportVocabJson,
+  isVocabUuid,
+  loadVocab,
+  saveVocab,
+  searchVocab,
+  setVocabUuid,
+} from '../../core/vocab/store';
+import type { VocabState } from '../../core/vocab/types';
 import type { PageMode } from '../../core/settings/schema';
 
 const send = <T,>(message: RuntimeMessage) =>
@@ -96,6 +108,10 @@ export default function App() {
   const [selectionKeys, setSelectionKeys] = useState('t');
   const [others, setOthers] = useState<{ id: string; name: string; version: string }[]>([]);
   const [manageState, setManageState] = useState<'unknown' | 'ready' | 'denied'>('unknown');
+  const [vocab, setVocab] = useState<VocabState | null>(null);
+  const [vocabQuery, setVocabQuery] = useState('');
+  const [restoreUuid, setRestoreUuid] = useState('');
+  const [vocabBusy, setVocabBusy] = useState(false);
   const [glossaryText, setGlossaryText] = useState('');
   const [usage, setUsage] = useState<{ total: number; byProvider: Record<string, number> } | null>(null);
   const [configs, setConfigs] = useState<Record<string, ProviderConfig>>({});
@@ -119,6 +135,7 @@ export default function App() {
       }
       const current = await getUsage();
       setUsage({ total: current.total, byProvider: current.byProvider });
+      setVocab(await loadVocab());
 
       const done = await chrome.storage.local.get('tf:wizardDone');
       const isDone = Boolean(done['tf:wizardDone']);
@@ -194,6 +211,58 @@ export default function App() {
       if (granted) await scanOthers();
     })();
   }, []);
+
+  const syncVocabNow = async () => {
+    if (vocabBusy) return;
+    setVocabBusy(true);
+    setStatus({ kind: 'info', text: '正在同步单词本…' });
+    try {
+      const response = await send<{ items: number; lastSyncAt: number }>({ type: 'vocab-sync-now' });
+      if (!response.ok) throw new Error(response.error.message);
+      setVocab(await loadVocab());
+      setStatus({ kind: 'ok', text: `同步成功 · ${response.data.items} 条` });
+    } catch (error) {
+      setStatus({ kind: 'err', text: `同步失败：${(error as Error).message}` });
+    } finally {
+      setVocabBusy(false);
+    }
+  };
+
+  const restoreVocab = async () => {
+    if (!isVocabUuid(restoreUuid)) {
+      setStatus({ kind: 'err', text: 'UUID 格式不正确' });
+      return;
+    }
+    setVocabBusy(true);
+    try {
+      await setVocabUuid(restoreUuid);
+      const response = await send<{ items: number }>({ type: 'vocab-sync-now' });
+      if (!response.ok) throw new Error(response.error.message);
+      setVocab(await loadVocab());
+      setStatus({ kind: 'ok', text: `已恢复并合并 · ${response.data.items} 条` });
+    } catch (error) {
+      setStatus({ kind: 'err', text: `恢复失败：${(error as Error).message}` });
+    } finally {
+      setVocabBusy(false);
+    }
+  };
+
+  const updateVocabSchedule = async (auto: boolean, intervalMinutes: number) => {
+    const next = await loadVocab();
+    next.sync.auto = auto;
+    next.sync.intervalMinutes = intervalMinutes;
+    await saveVocab(next);
+    setVocab(next);
+  };
+
+  const downloadFile = (name: string, content: string, type: string) => {
+    const url = URL.createObjectURL(new Blob([content], { type }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = name;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   const save = async () => {
     setBusy(true);
@@ -538,6 +607,113 @@ export default function App() {
         )}
         {manageState === 'denied' && <div className="status err">未授予权限。也可手动打开 chrome://extensions 移除旧版。</div>}
         <div className="hint">移除后请保留当前 1.2.x（ID 以 hpdl 开头），旧版 ID 以 dnag 开头。</div>
+      </div>
+
+
+      <div className="card">
+        <h2>单词本</h2>
+        <p className="desc">划词气泡或翻译弹窗里的「＋单词本」会保存到这里；UUID 是跨设备恢复的唯一凭证。</p>
+
+        <div className="vocab-uuid">
+          <code>{vocab?.uuid ?? '加载中…'}</code>
+          <button
+            className="btn"
+            onClick={() => {
+              if (vocab) {
+                void navigator.clipboard.writeText(vocab.uuid);
+                setStatus({ kind: 'ok', text: 'UUID 已复制' });
+              }
+            }}
+          >
+            复制 UUID
+          </button>
+        </div>
+
+        <div className="grid2">
+          <div className="field" style={{ marginTop: 0 }}>
+            <label htmlFor="restoreUuid">用 UUID 恢复</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                id="restoreUuid"
+                value={restoreUuid}
+                onChange={(e) => setRestoreUuid(e.target.value)}
+                placeholder="xxxxxxxx-xxxx-4xxx-xxxx-xxxxxxxxxxxx"
+              />
+              <button className="btn" onClick={() => void restoreVocab()} disabled={vocabBusy}>恢复</button>
+            </div>
+          </div>
+          <div className="field" style={{ marginTop: 0 }}>
+            <label htmlFor="vocabSchedule">自动同步</label>
+            <select
+              id="vocabSchedule"
+              value={vocab?.sync.auto ? String(vocab.sync.intervalMinutes) : 'manual'}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === 'manual') void updateVocabSchedule(false, 360);
+                else void updateVocabSchedule(true, Number(value));
+              }}
+            >
+              <option value="60">每 1 小时</option>
+              <option value="360">每 6 小时（推荐）</option>
+              <option value="720">每 12 小时</option>
+              <option value="1440">每 24 小时</option>
+              <option value="manual">仅手动</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="vocab-actions">
+          <button className="btn primary" onClick={() => void syncVocabNow()} disabled={vocabBusy}>立即同步</button>
+          <span className="hint">
+            {vocab?.sync.lastSyncAt
+              ? `上次同步：${new Date(vocab.sync.lastSyncAt).toLocaleString()}`
+              : '尚未同步'}
+            {vocab?.sync.lastError ? ` · ${vocab.sync.lastError}` : ''}
+          </span>
+          <button className="btn" onClick={() => vocab && downloadFile(`transflow-vocab-${Date.now()}.json`, exportVocabJson(vocab), 'application/json')}>导出 JSON</button>
+          <button className="btn" onClick={() => vocab && downloadFile(`transflow-vocab-${Date.now()}.csv`, exportVocabCsv(vocab.items), 'text/csv')}>导出 CSV</button>
+        </div>
+
+        <div className="vocab-search">
+          <input
+            value={vocabQuery}
+            onChange={(e) => setVocabQuery(e.target.value)}
+            placeholder="搜索原文或译文…"
+          />
+          <span>{vocab?.items.length ?? 0} 条</span>
+          <button
+            className="btn"
+            onClick={async () => {
+              if (!confirm('清空本地单词本？云端数据不会删除。')) return;
+              await clearVocabLocal();
+              setVocab(await loadVocab());
+            }}
+          >
+            清空本地
+          </button>
+        </div>
+
+        <div className="vocab-list">
+          {vocab && searchVocab(vocab.items, vocabQuery).slice(0, 100).map((item) => (
+            <div className="vocab-item" key={item.id}>
+              <div>
+                <b>{item.term}</b>
+                <span>{item.translation}</span>
+                <small>{item.sourceLang} → {item.targetLang} · {new Date(item.updatedAt).toLocaleDateString()}</small>
+              </div>
+              <button
+                className="btn"
+                onClick={async () => {
+                  await deleteVocabItem(item.id);
+                  setVocab(await loadVocab());
+                }}
+              >
+                删除
+              </button>
+            </div>
+          ))}
+          {vocab && vocab.items.length === 0 && <div className="hint">还没有单词。去划词翻译里点「＋单词本」。</div>}
+        </div>
       </div>
 
       <div className="card">

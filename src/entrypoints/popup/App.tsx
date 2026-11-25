@@ -28,6 +28,9 @@ export default function App() {
     hasSelection: boolean;
   } | null>(null);
   const [tabId, setTabId] = useState<number | null>(null);
+  const [tabUrl, setTabUrl] = useState('');
+  const [tabTitle, setTabTitle] = useState('');
+  const [vocabSaved, setVocabSaved] = useState(false);
   const [pageStatus, setPageStatus] = useState<{ translated: boolean; active: boolean; done: number; total: number } | null>(null);
 
   useEffect(() => {
@@ -54,6 +57,8 @@ export default function App() {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tab?.id == null) return;
         setTabId(tab.id);
+        setTabUrl(tab.url ?? '');
+        setTabTitle(tab.title ?? '');
         const response = (await chrome.tabs.sendMessage(tab.id, { type: 'diagnose' })) as
           | { ok: boolean; data?: { version: string; settings: { enabled: boolean; trigger: string; keys: string } | null; hasSelection: boolean } }
           | null;
@@ -75,6 +80,7 @@ export default function App() {
     setLoading(true);
     setError('');
     setResult('');
+    setVocabSaved(false);
     try {
       const response = await send<TranslateSuccess>({
         type: 'translate',
@@ -102,6 +108,31 @@ export default function App() {
     if (result) {
       setText(result);
       setResult(text);
+    }
+  };
+
+  const addToVocab = async () => {
+    if (!text.trim() || !result) return;
+    try {
+      const response = (await chrome.runtime.sendMessage({
+        type: 'vocab-add',
+        payload: {
+          term: text.trim(),
+          translation: result,
+          sourceLang: from === 'auto' ? 'auto' : from,
+          targetLang: to,
+          url: tabUrl,
+          title: tabTitle,
+        },
+      })) as { ok: boolean; data?: { added: boolean }; error?: { message: string } };
+      if (response?.ok) {
+        setVocabSaved(true);
+        setMeta(response.data?.added ? '已加入单词本' : '单词本已更新');
+      } else {
+        setError(response?.error?.message ?? '加入单词本失败');
+      }
+    } catch (error) {
+      setError(`加入单词本失败：${(error as Error).message}`);
     }
   };
 
@@ -207,6 +238,9 @@ export default function App() {
         </div>
         <div className="text">{result || '译文会显示在这里'}</div>
         <div className="acts">
+          <button onClick={() => void addToVocab()} disabled={!result}>
+            {vocabSaved ? '已加入' : '＋单词本'}
+          </button>
           <button
             onClick={() => {
               if (!text.trim()) return;

@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.4.0
+
+- 新增单词本：划词气泡、翻译弹窗「＋单词本」；设置页列表/搜索/删除/导出 JSON/CSV。
+- 首次使用生成 UUID，可跨设备输入 UUID 恢复并合并；支持轮换 UUID（旧云端数据由用户自行删除）。
+- 单词本同步：默认每 6 小时（chrome.alarms），可改 1/6/12/24h 或仅手动；保留「立即同步」。
+- 后端 platform-wx 删除 chromeCrx/democontroller/DemoController，新建 transflow 模块：
+  - `GET /transflow/health`
+  - `POST /transflow/vocab/sync`
+  - `DELETE /transflow/vocab`
+  - JSON 文件存储、UUID 校验、原子写、限流。
+- 域名 `transflow.yizhiweb.top`（Cloudflare DNS only + VPS nginx + FRP 129）。
+- 冒烟增至 31 项；单测 46。
+
 ## 1.3.0
 
 - 气泡新增「朗读原文」，排在「朗读译文」前面；弹出窗也同步为「朗读原文 / 朗读译文 / 复制」。

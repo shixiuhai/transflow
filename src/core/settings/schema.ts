@@ -29,6 +29,12 @@ export interface Settings {
   input: { enabled: boolean };
   ui: { theme: 'auto' | 'light' | 'dark'; reduceMotion: boolean };
   glossary: { entries: GlossaryEntry[] };
+  vocab: {
+    enabled: boolean;
+    autoSync: boolean;
+    syncIntervalMinutes: number;
+    syncUrl: string;
+  };
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -50,6 +56,12 @@ export const DEFAULT_SETTINGS: Settings = {
   input: { enabled: true },
   ui: { theme: 'auto', reduceMotion: false },
   glossary: { entries: [] },
+  vocab: {
+    enabled: true,
+    autoSync: true,
+    syncIntervalMinutes: 360,
+    syncUrl: 'https://transflow.yizhiweb.top/transflow',
+  },
 };
 
 type Plain = Record<string, unknown>;

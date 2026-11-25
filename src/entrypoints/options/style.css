@@ -70,3 +70,15 @@ body { background: var(--tf-bg-soft); min-height: 100vh; }
 .ext-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--tf-line); }
 .ext-row b { display: block; font-size: 13px; }
 .ext-row span { display: block; font-size: 11px; color: var(--tf-faint); margin-top: 2px; }
+
+.vocab-uuid { display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+.vocab-uuid code { flex:1; min-width:260px; font-size:11px; background:var(--tf-bg-soft); border:1px solid var(--tf-line); border-radius:8px; padding:8px 10px; color:var(--tf-muted); overflow:auto; }
+.vocab-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:14px; }
+.vocab-actions .hint { margin:0; flex:1; min-width:180px; }
+.vocab-search { display:flex; align-items:center; gap:8px; margin-top:16px; }
+.vocab-search input { flex:1; height:36px; border:1px solid var(--tf-line); border-radius:8px; padding:0 10px; background:var(--tf-bg); }
+.vocab-list { margin-top:10px; max-height:360px; overflow:auto; }
+.vocab-item { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-top:1px solid var(--tf-line); }
+.vocab-item b { display:block; font-size:13px; }
+.vocab-item span { display:block; font-size:12px; color:var(--tf-muted); margin-top:2px; }
+.vocab-item small { display:block; font-size:10px; color:var(--tf-faint); margin-top:3px; }

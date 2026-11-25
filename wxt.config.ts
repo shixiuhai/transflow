@@ -8,7 +8,7 @@ export default defineConfig({
     options_ui: { open_in_tab: true },
     name: '译流 TransFlow',
     description: '快速、开源的双语网页翻译扩展：整页双语、划词、输入框翻译。',
-    permissions: ['storage', 'activeTab', 'scripting', 'contextMenus'],
+    permissions: ['storage', 'activeTab', 'scripting', 'contextMenus', 'alarms'],
     host_permissions: ['<all_urls>'],
     optional_permissions: ['management'],
     commands: {

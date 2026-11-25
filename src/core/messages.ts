@@ -14,6 +14,9 @@ export type RuntimeMessage =
   | { type: 'get-selection' }
   | { type: 'diagnose' }
   | { type: 'page-status' }
+  | { type: 'vocab-add'; payload: import('./vocab/types').VocabDraft }
+  | { type: 'vocab-sync-now' }
+  | { type: 'vocab-get' }
   | { type: 'ping' };
 
 export interface TranslateSuccess {

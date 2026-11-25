@@ -5,6 +5,49 @@ import { createProvider } from '../core/provider/registry';
 import { ProviderError, type ProviderConfig } from '../core/provider/types';
 import { protectTerms, restoreTerms } from '../core/glossary';
 import { recordUsage } from '../core/usage';
+import { addVocabItem, loadVocab, saveVocab } from '../core/vocab/store';
+import { syncVocab } from '../core/vocab/sync';
+import type { VocabState } from '../core/vocab/types';
+
+const VOCAB_ALARM = 'transflow-vocab-sync';
+let vocabSyncPromise: Promise<void> | null = null;
+
+async function ensureVocabAlarm(): Promise<void> {
+  const [state, settings] = await Promise.all([loadVocab(), loadSettings()]);
+  const auto = state.sync.auto;
+  const minutes = state.sync.intervalMinutes || settings.vocab?.syncIntervalMinutes || 360;
+  await chrome.alarms.clear(VOCAB_ALARM);
+  if (auto && state.uuid) {
+    chrome.alarms.create(VOCAB_ALARM, { periodInMinutes: Math.max(1, minutes) });
+  }
+}
+
+async function syncVocabNow(): Promise<VocabState> {
+  if (vocabSyncPromise) {
+    await vocabSyncPromise;
+    return loadVocab();
+  }
+  const task = (async () => {
+    const state = await loadVocab();
+    const settings = await loadSettings();
+    const next = await syncVocab(state, settings.vocab?.syncUrl);
+    next.sync.auto = state.sync.auto;
+    next.sync.intervalMinutes = state.sync.intervalMinutes;
+    await saveVocab(next);
+  })();
+  vocabSyncPromise = task;
+  try {
+    await task;
+  } catch (error) {
+    const state = await loadVocab();
+    state.sync.lastError = (error as Error).message;
+    await saveVocab(state);
+    throw error;
+  } finally {
+    vocabSyncPromise = null;
+  }
+  return loadVocab();
+}
 
 async function sendToActiveTab(message: unknown): Promise<void> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -40,6 +83,22 @@ export default defineBackground(() => {
       chrome.contextMenus.create({ id: 'tf-page', title: '翻译整页', contexts: ['page'] });
       chrome.contextMenus.create({ id: 'tf-restore', title: '还原原文', contexts: ['page'] });
     });
+    void ensureVocabAlarm();
+  });
+
+  chrome.runtime.onStartup.addListener(() => {
+    void ensureVocabAlarm();
+  });
+
+  chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === VOCAB_ALARM) {
+      void syncVocabNow().catch(() => null);
+    }
+  });
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if (changes['tf:vocab:v1'] || changes.settings) void ensureVocabAlarm();
   });
 
   chrome.contextMenus.onClicked.addListener((info) => {
@@ -113,6 +172,30 @@ export default defineBackground(() => {
             }
             throw lastError ?? new Error('没有可用的翻译渠道');
           }
+
+          case 'vocab-add': {
+            const result = await addVocabItem(message.payload);
+            await ensureVocabAlarm();
+            sendResponse({
+              ok: true,
+              data: { added: result.added, item: result.item },
+            } satisfies RuntimeResponse);
+            return;
+          }
+
+          case 'vocab-sync-now': {
+            const state = await syncVocabNow();
+            await ensureVocabAlarm();
+            sendResponse({
+              ok: true,
+              data: { items: state.items.length, lastSyncAt: state.sync.lastSyncAt },
+            } satisfies RuntimeResponse);
+            return;
+          }
+
+          case 'vocab-get':
+            sendResponse({ ok: true, data: await loadVocab() } satisfies RuntimeResponse);
+            return;
 
           case 'page-translate':
           case 'page-restore':

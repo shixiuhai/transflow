@@ -196,6 +196,33 @@ check('missing credentials surfaces an error', bad.ok === false && /密钥|key|c
 await patchSettings("v.provider = { active: 'mock', fallback: [], configs: {} };");
 await popup.close();
 
+// --- vocab: add item, alarm, and state ---
+const vocabPage = await browser.newPage();
+await vocabPage.goto(`chrome-extension://${extensionId}/popup.html`, { waitUntil: 'domcontentloaded' });
+const vocabAdd = await vocabPage.evaluate(() =>
+  chrome.runtime.sendMessage({
+    type: 'vocab-add',
+    payload: {
+      term: 'serendipity',
+      translation: '意外发现',
+      sourceLang: 'en',
+      targetLang: 'zh',
+      url: 'https://example.com',
+      title: 'Example',
+    },
+  }),
+);
+check('vocab add works', Boolean(vocabAdd?.ok), JSON.stringify(vocabAdd));
+const alarms = await vocabPage.evaluate(() => chrome.alarms.getAll());
+check(
+  'vocab 6h alarm is scheduled',
+  alarms.some((alarm) => alarm.name === 'transflow-vocab-sync' && alarm.periodInMinutes === 360),
+  JSON.stringify(alarms),
+);
+const vocabState = await vocabPage.evaluate(() => chrome.runtime.sendMessage({ type: 'vocab-get' }));
+check('vocab state has item', Boolean(vocabState?.ok) && vocabState.data.items.length === 1, JSON.stringify(vocabState?.data?.items?.length));
+await vocabPage.close();
+
 const optionsPage = await browser.newPage();
 await optionsPage.goto(`chrome-extension://${extensionId}/options.html`, { waitUntil: 'domcontentloaded' });
 await sleep(700);

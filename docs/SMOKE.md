@@ -4,9 +4,9 @@
 > 命令：`pnpm smoke`（约 20–30 秒）
 > 依赖：Chrome for Testing / Chromium（支持 `--load-extension`），默认路径见 `scripts/smoke.sh`，可用 `CHROME_BIN` 覆盖。
 
-## 自动化覆盖（28 项）
+## 自动化覆盖（31 项）
 
-`pnpm smoke` 在干净 profile 中加载扩展、启动 fixture 与本地 mock AI，通过 service worker 触发翻译并断言 DOM；当前 28 项全绿。
+`pnpm smoke` 在干净 profile 中加载扩展、启动 fixture 与本地 mock AI，通过 service worker 触发翻译并断言 DOM；当前 31 项全绿。
 
 | # | 检查 | 断言 |
 |---|---|---|
@@ -38,6 +38,9 @@
 | 26 | 页面诊断 | 返回页面脚本版本、trigger/keys、选区状态 |
 | 27 | 整页状态 | 完成后 `page-status.translated=true` |
 | 28 | 还原状态 | 还原后 `page-status.translated=false` |
+| 29 | 单词本添加 | `vocab-add` 返回 ok 并写入本地 |
+| 30 | 6h 定时 | `transflow-vocab-sync` alarm period=360 |
+| 31 | 单词本状态 | `vocab-get` 含 1 条 |
 
 ## 20 条验收矩阵
 
