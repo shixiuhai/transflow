@@ -4,7 +4,7 @@
 
 ![整页双语](docs/assets/fusion-page.png)
 
-**状态：v0.6.0 开发预览。** 20 项自动化冒烟全绿；火山 / 百度 / OpenAI 兼容 / Mock 四类渠道，整页四种样式、区块级配色、缓存、术语表、用量、首次向导均已可用。真实火山链路需自备 AK/SK 后用 `pnpm volc:check` 验证。
+**状态：v0.9.0 开发预览（v1.0.0 候选）。** 20 项自动化冒烟全绿；火山 / 百度 / OpenAI 兼容 / Mock 四类渠道，整页四种样式、区块级配色、缓存、术语表、用量、首次向导均已可用。真实火山链路需自备 AK/SK 后用 `pnpm volc:check` 验证。
 
 ## 为什么做它
 
@@ -69,6 +69,8 @@ pnpm zip         # 可安装 zip
 - [性能基准](docs/PERF.md)
 - [渠道说明](docs/PROVIDERS.md)
 - [架构](docs/ARCHITECTURE.md)
+- [发布清单](docs/RELEASE.md)
+- [贡献指南](CONTRIBUTING.md) · [安全](SECURITY.md) · [变更日志](CHANGELOG.md)
 
 ## 架构
 

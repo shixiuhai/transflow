@@ -1,7 +1,7 @@
 {
   "name": "transflow",
   "private": true,
-  "version": "0.6.0",
+  "version": "0.9.0",
   "type": "module",
   "description": "Fast, open-source bilingual translation extension with a fusion reading layer",
   "license": "MIT",
@@ -32,5 +32,10 @@
     "smoke": "bash scripts/smoke.sh",
     "prepare": "wxt prepare",
     "volc:check": "esbuild scripts/volc-check.ts --bundle --platform=node --format=esm --outfile=.output/volc-check.mjs && node .output/volc-check.mjs"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }

@@ -90,9 +90,9 @@ export async function signVolcRequest(opts: VolcSignOptions): Promise<SignedHead
   const shortDate = xDate.slice(0, 8);
   const payloadHash = await sha256Hex(opts.body);
 
+  // Volcengine's official SDK signs only these two headers for OpenAPI JSON
+  // requests (content-type and host are deliberately unsigned).
   const headersToSign: Record<string, string> = {
-    'content-type': 'application/json',
-    host: opts.host,
     'x-content-sha256': payloadHash,
     'x-date': xDate,
   };

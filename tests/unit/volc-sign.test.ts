@@ -33,8 +33,11 @@ describe('volc signing', () => {
 
     expect(signed.xDate).toBe('20261125T060000Z');
     expect(signed.payloadHash).toBe(await sha256Hex(body));
-    expect(signed.authorization).toMatch(
-      /^HMAC-SHA256 Credential=AKLTtest\/20261125\/cn-north-1\/translate\/request, SignedHeaders=content-type;host;x-content-sha256;x-date, Signature=[0-9a-f]{64}$/,
+    // Vector generated with the official @volcengine/openapi 1.36.2 signer.
+    expect(signed.authorization).toBe(
+      'HMAC-SHA256 Credential=AKLTtest/20261125/cn-north-1/translate/request, ' +
+        'SignedHeaders=x-content-sha256;x-date, ' +
+        'Signature=de0fdac43ebaba8971c75586231982c30ec5012ccfa6caf05a13fdf9c790c4fa',
     );
     expect(signed.canonicalRequest.split('\n')[0]).toBe('POST');
     expect(signed.canonicalRequest.split('\n')[2]).toBe('Action=TranslateText&Version=2020-06-01');
