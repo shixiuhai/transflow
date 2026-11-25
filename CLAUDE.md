@@ -7,7 +7,11 @@
 - 旧仓库 `shixiuhai/chrome_translate` 已于 2026-11-25 删除（GitHub 404、本地工作副本移走），归档在 `/root/backups/chrome_translate-2026-11-25.{tar.gz,bundle}` 与 `...-src/`。
 - 当前版本 **v1.0.0**，已发布 GitHub Release。
 - **已发布 GitHub**：<https://github.com/shixiuhai/transflow>（public），v1.0.0 Release 附可安装 zip。
-- **Chrome Web Store**：开发者控制台已登录（publisher `ecf36940-fdff-4bb9-a5d8-8a19fbda432c`），上传被 Google 要求**先开启两步验证**；zip 已托管到 Pages 便于上传。
+- **Chrome Web Store**：开发者控制台已登录（publisher `ecf36940-fdff-4bb9-a5d8-8a19fbda432c`）。
+  - 2026-11-25：两步验证已开启；zip 上传成功，创建草稿 item `fjbdpcmhkfilgbnlpnfbcpbplpbekooj`。
+  - 已填：说明（318 字）、首页/支持 URL、隐私权规范（单一用途 + storage/activeTab/scripting/contextMenus/主机权限理由 + 隐私政策 URL + 4 个确认勾选）。
+  - 待补：类别=效率、语言=中文（简体）、商店图标 128、至少 1 张 1280×800 截图；然后保存草稿 → 提请审核。
+  - 登录邮箱 `xiuhaishi@gmail.com`；开发者联系邮箱建议改为 `shixiuhai@shixiuhai.serv00.net`。
 - 联系邮箱：`shixiuhai@shixiuhai.serv00.net`（Serv00）。
 
 ## 技术栈与目录
