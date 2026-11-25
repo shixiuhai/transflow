@@ -413,7 +413,7 @@ export default function App() {
       <div className="card">
         <h2>关于</h2>
         <p className="desc">
-          TransFlow v0.3.0 · MIT · 开源地址待发布。开发预览：整页双语、划词、输入框、术语表、用量统计与多渠道已可用。
+          TransFlow v1.0.0 · MIT · github.com/shixiuhai/transflow
         </p>
         {settings && <div className="hint">当前渠道：{settings.provider.active}</div>}
       </div>

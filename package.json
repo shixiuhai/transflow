@@ -35,5 +35,10 @@
     "volc:bench": "esbuild scripts/volc-bench.ts --bundle --platform=node --format=esm --outfile=.output/volc-bench.mjs && node .output/volc-bench.mjs",
     "volc:e2e": "bash scripts/volc-e2e.sh",
     "store:shots": "bash scripts/store-shot.sh"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shixiuhai/transflow.git"
+  },
+  "homepage": "https://github.com/shixiuhai/transflow"
 }

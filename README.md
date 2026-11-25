@@ -1,6 +1,8 @@
 # 译流 TransFlow
 
 > 快速、开源的双语阅读层。整页双语、划词、输入框翻译，默认接入国内低延迟渠道。
+>
+> GitHub：<https://github.com/shixiuhai/transflow> · 下载：<https://github.com/shixiuhai/transflow/releases>
 
 ![整页双语](docs/assets/fusion-page.png)
 
