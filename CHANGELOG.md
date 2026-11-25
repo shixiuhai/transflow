@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0
+
+- 真实火山链路验证：首段 875ms、整页 877ms（7 段 fixture，代理网络）。
+- 火山签名对齐官方 SDK 固定向量。
+- 新增 `volc:check` / `volc:bench` / `volc:e2e`。
+- 22 项冒烟、34 个单元/契约测试、CI、发布文档齐全。
+
 ## Unreleased
 
 ## 0.6.0

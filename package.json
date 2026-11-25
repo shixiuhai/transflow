@@ -1,7 +1,7 @@
 {
   "name": "transflow",
   "private": true,
-  "version": "0.9.0",
+  "version": "1.0.0",
   "type": "module",
   "description": "Fast, open-source bilingual translation extension with a fusion reading layer",
   "license": "MIT",
@@ -31,6 +31,8 @@
     "test:watch": "vitest",
     "smoke": "bash scripts/smoke.sh",
     "prepare": "wxt prepare",
-    "volc:check": "esbuild scripts/volc-check.ts --bundle --platform=node --format=esm --outfile=.output/volc-check.mjs && node .output/volc-check.mjs"
+    "volc:check": "esbuild scripts/volc-check.ts --bundle --platform=node --format=esm --outfile=.output/volc-check.mjs && node .output/volc-check.mjs",
+    "volc:bench": "esbuild scripts/volc-bench.ts --bundle --platform=node --format=esm --outfile=.output/volc-bench.mjs && node .output/volc-bench.mjs",
+    "volc:e2e": "bash scripts/volc-e2e.sh"
   }
 }

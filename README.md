@@ -4,7 +4,7 @@
 
 ![整页双语](docs/assets/fusion-page.png)
 
-**状态：v0.9.0 开发预览（v1.0.0 候选）。** 22 项自动化冒烟全绿；火山 / 百度 / OpenAI 兼容 / Mock 四类渠道，整页四种样式、区块级配色、缓存、术语表、用量、首次向导均已可用。真实火山链路需自备 AK/SK 后用 `pnpm volc:check` 验证。
+**状态：v1.0.0。** 真实火山链路已验证（首段 875ms / 整页 877ms，7 段 fixture）；22 项自动化冒烟全绿；火山 / 百度 / OpenAI 兼容 / Mock 四类渠道，整页四种样式、区块级配色、缓存、术语表、用量、首次向导均已可用。
 
 ## 为什么做它
 
@@ -52,6 +52,14 @@ mkdir -p /root/.secrets && chmod 700 /root/.secrets
 printf 'VOLC_AK=%s\nVOLC_SK=%s\n' 'AK' 'SK' > /root/.secrets/volc.env
 chmod 600 /root/.secrets/volc.env
 pnpm volc:check
+```
+
+## 真实渠道验证
+
+```bash
+pnpm volc:check   # 直连 API + 两句样例
+pnpm volc:bench   # 单段 / 16 段批量延迟
+pnpm volc:e2e     # 扩展端到端（需要 Chrome for Testing）
 ```
 
 ## 开发与测试
