@@ -191,12 +191,16 @@ export default defineContentScript({
 
     const positionCard = (target: HTMLDivElement, rect: DOMRect) => {
       const margin = 8;
-      const width = 340;
+      const box = target.getBoundingClientRect();
+      const width = box.width || 340;
+      const height = box.height || 180;
+
       const left = Math.min(Math.max(margin, rect.left), window.innerWidth - width - margin);
       let top = rect.bottom + margin;
-      const estimated = 180;
-      if (top + estimated > window.innerHeight - margin) {
-        top = Math.max(margin, rect.top - estimated - margin);
+      if (top + height > window.innerHeight - margin) top = rect.top - height - margin;
+      if (top < margin) {
+        top = margin;
+        target.style.maxHeight = `${window.innerHeight - margin * 2}px`;
       }
       target.style.left = `${left}px`;
       target.style.top = `${top}px`;
@@ -217,6 +221,12 @@ export default defineContentScript({
     const requestTranslation = async (text: string, rect: DOMRect, sourceEl: HTMLElement) => {
       closeCard();
       hideTrigger();
+
+      let anchor = rect;
+      if (rect.bottom < 0 || rect.top > window.innerHeight) {
+        sourceEl.scrollIntoView({ block: 'center' });
+        anchor = sourceEl.getBoundingClientRect();
+      }
       card = document.createElement('div');
       card.className = 'card';
       card.innerHTML = `
@@ -227,8 +237,8 @@ export default defineContentScript({
       `;
       (card.querySelector('.quote') as HTMLElement).textContent = text;
       styleCardFromPalette(card, samplePalette(sourceEl));
-      positionCard(card, rect);
       layer.appendChild(card);
+      positionCard(card, anchor);
 
       try {
         const settings = await getSettings().catch(() => null);
