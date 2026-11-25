@@ -262,7 +262,7 @@ check('selection translation records usage', usageAfter > usageBefore, `${usageB
 await page.screenshot({ path: '/tmp/tf_selection.png' });
 await page.evaluate(() => getSelection().removeAllRanges());
 
-// --- 20. configurable shortcut places translation inline ---
+// --- 20. configurable shortcut opens a floating bubble ---
 await page.keyboard.press('Escape');
 await patchSettings("v.selection = { enabled: true, target: 'zh', trigger: 'shortcut', keys: 't' };");
 await sleep(350);
@@ -281,16 +281,16 @@ await page.evaluate(() => {
 });
 await page.keyboard.press('t');
 await sleep(900);
-const inline = await page.evaluate(() => {
-  const node = document.querySelector('.tf-inline');
-  return node ? { text: node.textContent ?? '', state: node.dataset.state } : null;
+const bubble = await page.evaluate(() => {
+  const host = document.getElementById('transflow-root');
+  return host ? { open: host.dataset.tfBubble, placement: host.dataset.tfPlacement } : null;
 });
-check('configured shortcut places inline translation', Boolean(inline) && inline.text.includes('模拟'), JSON.stringify(inline));
-await page.screenshot({ path: '/tmp/tf_inline.png' });
+check('configured shortcut opens a bubble', Boolean(bubble) && bubble.open === 'open' && Boolean(bubble.placement), JSON.stringify(bubble));
+await page.screenshot({ path: '/tmp/tf_bubble.png' });
 await page.keyboard.press('Escape');
 await sleep(250);
-const inlineGone = await page.evaluate(() => !document.querySelector('.tf-inline'));
-check('Escape removes inline translation', inlineGone);
+const bubbleGone = await page.evaluate(() => !document.getElementById('transflow-root')?.dataset.tfBubble);
+check('Escape closes the bubble', bubbleGone);
 await patchSettings("v.selection = { enabled: true, target: 'zh', trigger: 'both', keys: 'alt+s' };");
 
 // --- 20. cancel stops applying translations ---

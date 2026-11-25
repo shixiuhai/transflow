@@ -5,7 +5,8 @@
 - 开源双语网页翻译扩展（MV3），产品名 **译流 TransFlow**，MIT。
 - 代码目录：`/root/transflow`（本机唯一源码）。
 - 旧仓库 `shixiuhai/chrome_translate` 已于 2026-11-25 删除（GitHub 404、本地工作副本移走），归档在 `/root/backups/chrome_translate-2026-11-25.{tar.gz,bundle}` 与 `...-src/`。
-- 当前版本 **v1.1.1**：划词默认小写 `t`（单键/组合键可配），译文内联插入选区旁；旧 `alt+s` 默认会自动迁移。
+- 当前版本 **v1.2.0**：划词默认小写 `t`（单键/组合键可配），译文以**悬浮气泡**出现在选区右侧/下方/上方，带箭头。
+- 扩展 ID 已固定为 `hpdlgjmoidbdidccpkhjpbgkepgonlja`（manifest.key）；私钥 `~/.secrets/transflow-extension.pem`（600），`pnpm pack:crx` 打包。旧路径 ID `dnag...` 需一次性移除重装。
 - **已发布 GitHub**：<https://github.com/shixiuhai/transflow>（public），v1.0.0 Release 附可安装 zip。
 - **Chrome Web Store**：开发者控制台已登录（publisher `ecf36940-fdff-4bb9-a5d8-8a19fbda432c`）。
   - 2026-11-25：两步验证已开启；zip 上传成功，创建草稿 item `fjbdpcmhkfilgbnlpnfbcpbplpbekooj`。

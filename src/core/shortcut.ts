@@ -41,6 +41,9 @@ export function formatShortcut(shortcut: string): string {
   if (!shortcut) return '';
   return shortcut
     .split('+')
-    .map((part) => LABELS[part] ?? part.toUpperCase())
+    .map((part) => {
+      if (LABELS[part]) return LABELS[part];
+      return part.length === 1 ? part.toLowerCase() : part.toUpperCase();
+    })
     .join(' + ');
 }

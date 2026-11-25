@@ -23,7 +23,8 @@ describe('shortcut', () => {
   });
 
   it('formats for humans', () => {
-    expect(formatShortcut('alt+s')).toBe('Alt + S');
-    expect(formatShortcut('ctrl+shift+k')).toBe('Ctrl + Shift + K');
+    expect(formatShortcut('alt+s')).toBe('Alt + s');
+    expect(formatShortcut('ctrl+shift+k')).toBe('Ctrl + Shift + k');
+    expect(formatShortcut('t')).toBe('t');
   });
 });

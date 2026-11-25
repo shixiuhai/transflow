@@ -69,10 +69,28 @@ const STYLE = `
   }
   @media (prefers-color-scheme: dark) {
     .card { background: rgba(22,25,30,.86); border-color: rgba(255,255,255,.10); color: #F1F4F8; }
-    .quote { color: #98A2B3; }
+    .card::before {
+    content: ""; position: absolute; width: 10px; height: 10px;
+    background: var(--tf-bubble-bg, #fff);
+    border: 1px solid var(--tf-bubble-border, rgba(16,24,40,.08));
+    transform: rotate(45deg);
+  }
+  .card[data-placement="right"]::before { left: -5px; top: var(--tf-arrow-top, 50%); border-right: 0; border-top: 0; }
+  .card[data-placement="bottom"]::before { top: -5px; left: var(--tf-arrow-left, 24px); border-right: 0; border-bottom: 0; }
+  .card[data-placement="top"]::before { bottom: -5px; left: var(--tf-arrow-left, 24px); border-left: 0; border-top: 0; }
+  .quote { color: #98A2B3; }
     .meta { color: #6B7684; }
     .row { border-color: rgba(255,255,255,.08); }
   }
+  .card::before {
+    content: ""; position: absolute; width: 10px; height: 10px;
+    background: var(--tf-bubble-bg, #fff);
+    border: 1px solid var(--tf-bubble-border, rgba(16,24,40,.08));
+    transform: rotate(45deg);
+  }
+  .card[data-placement="right"]::before { left: -5px; top: var(--tf-arrow-top, 50%); border-right: 0; border-top: 0; }
+  .card[data-placement="bottom"]::before { top: -5px; left: var(--tf-arrow-left, 24px); border-right: 0; border-bottom: 0; }
+  .card[data-placement="top"]::before { bottom: -5px; left: var(--tf-arrow-left, 24px); border-left: 0; border-top: 0; }
   .quote {
     font-size: 11px; line-height: 1.5; color: #667085; margin-bottom: 8px;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
@@ -158,14 +176,14 @@ export default defineContentScript({
     let ambient: HTMLDivElement | null = null;
     let pageJob: PageJob | null = null;
     let settingsCache: Settings | null = null;
-    let inlineNode: HTMLElement | null = null;
-    let lastSelectionTrigger = 0;
 
     const hideTrigger = () => trigger?.classList.remove('show');
 
     const closeCard = () => {
       card?.remove();
       card = null;
+      hostEl?.removeAttribute('data-tf-bubble');
+      hostEl?.removeAttribute('data-tf-placement');
     };
 
     const showToast = (message: string) => {
@@ -203,105 +221,51 @@ export default defineContentScript({
       (await chrome.runtime.sendMessage({ type: 'translate', segments, from, to })) as RuntimeResponse<TranslateSuccess>;
 
 
-    // ---------- inline selection translation ----------
-
-    const clearInline = () => {
-      inlineNode?.remove();
-      inlineNode = null;
-    };
-
-    const insertInlineNode = (range: Range, palette: Palette): HTMLElement | null => {
-      const end = range.cloneRange();
-      end.collapse(false);
-      const container = end.endContainer;
-      const parent = container.nodeType === Node.ELEMENT_NODE
-        ? (container as HTMLElement)
-        : container.parentElement;
-      if (!parent || parent.closest('input, textarea, select, [contenteditable="true"]')) return null;
-
-      const node = document.createElement('span');
-      node.className = 'tf-inline';
-      node.dataset.state = 'loading';
-      node.setAttribute('translate', 'no');
-      node.contentEditable = 'false';
-      node.style.setProperty('--tf-trans-color', palette.trans);
-      node.style.setProperty('--tf-rule-color', palette.rule);
-      node.style.setProperty('--tf-card-bg', palette.card);
-      node.textContent = '翻译中…';
-      try {
-        end.insertNode(node);
-      } catch {
-        return null;
-      }
-      return node;
-    };
-
-    const translateSelectionInline = async (info: SelectionInfo) => {
-      const now = Date.now();
-      if (now - lastSelectionTrigger < 250) return;
-      lastSelectionTrigger = now;
-
-      clearInline();
-      hideTrigger();
-      closeCard();
-
-      const settings = settingsCache ?? (await getSettings().catch(() => null));
-      if (!settings?.selection.enabled) return;
-      const target = settings.selection.target || settings.language.target || 'zh';
-      const palette = samplePalette(info.el);
-      const node = insertInlineNode(info.range, palette);
-      if (!node) {
-        // Fallback when the selection cannot hold an inline node.
-        await requestTranslation(info.text, info.rect, info.el);
-        return;
-      }
-
-      inlineNode = node;
-      node.addEventListener('click', async (event) => {
-        event.stopPropagation();
-        await navigator.clipboard.writeText(node.textContent ?? '');
-        showToast('已复制译文');
-      });
-
-      try {
-        const response = await sendTranslate([{ id: 'selection', text: info.text }], 'auto', target);
-        if (inlineNode !== node) return;
-        if (!response.ok) {
-          node.dataset.state = 'error';
-          node.textContent = response.error.message;
-          return;
-        }
-        node.dataset.state = 'done';
-        node.textContent = response.data.results[0]?.text ?? '';
-        node.title = '点击复制译文';
-      } catch (error) {
-        if (inlineNode !== node) return;
-        node.dataset.state = 'error';
-        node.textContent = `翻译失败：${(error as Error).message}`;
-      }
-    };
-
     // ---------- selection bubble ----------
 
     const positionCard = (target: HTMLDivElement, rect: DOMRect) => {
-      const margin = 8;
+      const margin = 12;
+      const gap = 12;
       const box = target.getBoundingClientRect();
       const width = box.width || 340;
       const height = box.height || 180;
 
-      const left = Math.min(Math.max(margin, rect.left), window.innerWidth - width - margin);
-      let top = rect.bottom + margin;
-      if (top + height > window.innerHeight - margin) top = rect.top - height - margin;
-      if (top < margin) {
-        top = margin;
-        target.style.maxHeight = `${window.innerHeight - margin * 2}px`;
+      let placement: 'right' | 'bottom' | 'top' = 'right';
+      let left = rect.right + gap;
+      let top = rect.top + rect.height / 2 - height / 2;
+
+      if (left + width > window.innerWidth - margin) {
+        placement = 'bottom';
+        left = rect.left;
+        top = rect.bottom + gap;
+        if (top + height > window.innerHeight - margin) {
+          placement = 'top';
+          top = rect.top - height - gap;
+        }
       }
+
+      left = Math.min(Math.max(margin, left), window.innerWidth - width - margin);
+      top = Math.min(Math.max(margin, top), window.innerHeight - height - margin);
+      target.dataset.placement = placement;
+      hostEl?.setAttribute('data-tf-placement', placement);
+
+      if (placement === 'right') {
+        const arrow = Math.min(Math.max(14, rect.top + rect.height / 2 - top), height - 14);
+        target.style.setProperty('--tf-arrow-top', `${arrow}px`);
+      } else {
+        const arrow = Math.min(Math.max(14, rect.left + Math.min(rect.width / 2, 48) - left), width - 14);
+        target.style.setProperty('--tf-arrow-left', `${arrow}px`);
+      }
+
       target.style.left = `${left}px`;
       target.style.top = `${top}px`;
     };
 
     const styleCardFromPalette = (target: HTMLElement, palette: Palette) => {
-      target.style.background = `color-mix(in srgb, ${palette.bg} 88%, transparent)`;
+      const bubbleBg = `color-mix(in srgb, ${palette.bg} 90%, transparent)`;
+      target.style.setProperty('--tf-bubble-bg', bubbleBg);
+      target.style.setProperty('--tf-bubble-border', `color-mix(in srgb, ${palette.fg} 12%, transparent)`);
+      target.style.background = bubbleBg;
       target.style.color = palette.fg;
       target.style.borderColor = `color-mix(in srgb, ${palette.fg} 12%, transparent)`;
       const quote = target.querySelector('.quote') as HTMLElement | null;
@@ -327,12 +291,20 @@ export default defineContentScript({
         <div class="quote"></div>
         <div class="divider"></div>
         <div class="text"><div class="skeleton" style="width:88%"></div><div class="skeleton" style="width:64%"></div></div>
-        <div class="row"><button data-act="copy">复制</button><button data-act="close">关闭</button><span class="spacer"></span><span class="meta">翻译中…</span></div>
+        <div class="row"><button data-act="copy">复制</button><button data-act="speak">朗读</button><button data-act="close">关闭</button><span class="spacer"></span><span class="meta">翻译中…</span></div>
       `;
       (card.querySelector('.quote') as HTMLElement).textContent = text;
       styleCardFromPalette(card, samplePalette(sourceEl));
       layer.appendChild(card);
+      hostEl?.setAttribute('data-tf-bubble', 'open');
       positionCard(card, anchor);
+
+      const opened = card;
+      const onScroll = () => {
+        window.removeEventListener('scroll', onScroll);
+        if (card === opened) closeCard();
+      };
+      window.addEventListener('scroll', onScroll, { passive: true });
 
       try {
         const settings = await getSettings().catch(() => null);
@@ -349,16 +321,30 @@ export default defineContentScript({
         const translated = response.data.results[0]?.text ?? '';
         textEl.textContent = translated;
         metaEl.textContent = `${response.data.provider} · ${response.data.latencyMs} ms`;
+        positionCard(card, anchor);
 
         card.querySelector('[data-act="copy"]')?.addEventListener('click', async () => {
           await navigator.clipboard.writeText(translated);
           metaEl.textContent = '已复制';
+        });
+        card.querySelector('[data-act="speak"]')?.addEventListener('click', () => {
+          const utterance = new SpeechSynthesisUtterance(translated);
+          utterance.lang = target;
+          speechSynthesis.speak(utterance);
         });
         card.querySelector('[data-act="close"]')?.addEventListener('click', closeCard);
       } catch (error) {
         if (!card) return;
         (card.querySelector('.text') as HTMLElement).textContent = `翻译失败：${(error as Error).message}`;
       }
+    };
+
+    let lastSelectionTrigger = 0;
+    const translateSelection = (info: SelectionInfo) => {
+      const now = Date.now();
+      if (now - lastSelectionTrigger < 250) return;
+      lastSelectionTrigger = now;
+      void requestTranslation(info.text, info.rect, info.el);
     };
 
     const showTrigger = (info: SelectionInfo) => {
@@ -374,7 +360,7 @@ export default defineContentScript({
         trigger.addEventListener('mousedown', (event) => event.preventDefault());
         trigger.addEventListener('click', () => {
           const current = readSelection();
-          if (current) void translateSelectionInline(current);
+          if (current) translateSelection(current);
         });
         layer.appendChild(trigger);
       }
@@ -658,7 +644,6 @@ export default defineContentScript({
       window.setTimeout(() => {
         const info = readSelection();
         if (info) {
-          if (inlineNode && !inlineNode.contains(event.target as Node)) clearInline();
           showTrigger(info);
         } else {
           hideTrigger();
@@ -672,7 +657,6 @@ export default defineContentScript({
       if (!inside) {
         hideTrigger();
         closeCard();
-        if (!inlineNode || !path.includes(inlineNode)) clearInline();
       }
     });
 
@@ -680,7 +664,6 @@ export default defineContentScript({
       if (event.key === 'Escape') {
         hideTrigger();
         closeCard();
-        clearInline();
       }
     });
 
@@ -696,7 +679,7 @@ export default defineContentScript({
         if (!info) return;
         event.preventDefault();
         event.stopPropagation();
-        void translateSelectionInline(info);
+        translateSelection(info);
       },
       true,
     );
@@ -713,7 +696,7 @@ export default defineContentScript({
         if (message.type === 'selection-translate') {
           const info = readSelection();
           if (!info) showToast('请先选中要翻译的文本');
-          else await translateSelectionInline(info);
+          else translateSelection(info);
           sendResponse({ ok: true, data: null });
           return;
         }
