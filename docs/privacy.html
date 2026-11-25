@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>译流 TransFlow · 隐私政策</title>
+<style>
+  body { max-width: 760px; margin: 48px auto; padding: 0 24px; font: 16px/1.75 -apple-system, "Noto Sans SC", sans-serif; color: #1b1f24; }
+  h1 { font-size: 28px; margin-bottom: 4px; }
+  h2 { font-size: 18px; margin-top: 32px; }
+  .muted { color: #667085; font-size: 13px; }
+  code { background: #f2f4f7; padding: 1px 5px; border-radius: 4px; }
+  hr { border: 0; border-top: 1px solid #e5e7eb; margin: 32px 0; }
+</style>
+</head>
+<body>
+<h1>译流 TransFlow · 隐私政策</h1>
+<p class="muted">最后更新：2026-11-25 · 适用于浏览器扩展“译流 TransFlow”</p>
+
+<h2>我们不收集什么</h2>
+<p>扩展没有账号系统、没有自建服务器、没有遥测或分析 SDK。我们不会收集你的浏览历史、剪贴板、账号密码或设备标识。</p>
+
+<h2>会发送哪些数据</h2>
+<p>当你触发翻译时，<strong>当前需要翻译的文本</strong>会发送到你在设置中选择的第三方翻译渠道（例如火山引擎、百度翻译、OpenAI 兼容接口）。发送目的是完成翻译，数据保留与使用规则由对应渠道的隐私政策决定。</p>
+
+<h2>密钥与本地数据</h2>
+<p>API 密钥保存在浏览器本地存储 <code>chrome.storage.local</code>，不会上传到我们或任何第三方；译文缓存保存在浏览器本地（IndexedDB/扩展存储），可在设置中清空。</p>
+
+<h2>权限用途</h2>
+<ul>
+  <li><code>storage</code>：保存密钥、语言偏好、术语表与缓存。</li>
+  <li><code>activeTab</code> / <code>scripting</code>：在用户主动触发时向当前页面注入翻译界面。</li>
+  <li><code>contextMenus</code>：提供右键翻译入口。</li>
+  <li><code>&lt;all_urls&gt;</code>：读取当前网页的可见文本以进行翻译；不会记录或上传浏览行为。</li>
+</ul>
+
+<h2>你的控制权</h2>
+<p>你可以随时在设置中删除密钥、清空缓存，或直接卸载扩展；卸载后本地数据随之删除。</p>
+
+<h2>联系我们</h2>
+<p>问题与隐私相关请求请通过项目仓库的 Issues 联系。</p>
+
+<hr>
+<h2>English summary</h2>
+<p>TransFlow does not collect telemetry or browsing history. Text you choose to translate is sent only to the translation provider you configure. API keys and caches stay in your browser's local storage and can be cleared at any time. Contact us via the project's GitHub Issues.</p>
+</body>
+</html>

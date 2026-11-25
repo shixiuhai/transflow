@@ -58,3 +58,5 @@ body { background: var(--tf-bg-soft); min-height: 100vh; }
 .wizard-actions { display: flex; align-items: center; gap: 8px; margin-top: 18px; }
 .wizard-actions .skip { margin-left: auto; border: 0; background: none; color: var(--tf-faint); font-size: 11px; padding: 4px 6px; }
 .wizard-actions .skip:hover { color: var(--tf-muted); }
+
+.wizard-open .card:not(.wizard) { display: none; }

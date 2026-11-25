@@ -7,7 +7,7 @@
 ## 密钥处理
 
 - API 密钥只保存在 `chrome.storage.local`，不上传、不写日志。
-- 命令行自检从 `/root/.secrets/volc.env` 读取；仓库 `.gitignore` 已排除 `.env*`。
+- 命令行自检从 `~/.secrets/volc.env` 读取；仓库 `.gitignore` 已排除 `.env*`。
 - 如果怀疑密钥泄露，立即在对应云控制台轮换。
 
 ## 权限

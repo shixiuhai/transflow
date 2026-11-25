@@ -19,8 +19,8 @@ Body: {"SourceLanguage":"en","TargetLanguage":"zh","TextList":["..."]}
 自检：
 
 ```bash
-printf 'VOLC_AK=%s\nVOLC_SK=%s\n' 'AK' 'SK' > /root/.secrets/volc.env
-chmod 600 /root/.secrets/volc.env
+printf 'VOLC_AK=%s\nVOLC_SK=%s\n' 'AK' 'SK' > ~/.secrets/volc.env
+chmod 600 ~/.secrets/volc.env
 pnpm volc:check
 ```
 
@@ -41,5 +41,5 @@ pnpm volc:check
 ## 安全
 
 - 密钥只存 `chrome.storage.local`，不写日志、不上传。
-- 命令行自检从 `/root/.secrets/volc.env` 读取，`.gitignore` 已排除 `.env*`。
+- 命令行自检从 `~/.secrets/volc.env` 读取，`.gitignore` 已排除 `.env*`。
 - 不要把 AK/SK 提交到仓库或贴到公开 Issue。

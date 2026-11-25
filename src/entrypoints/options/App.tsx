@@ -173,7 +173,7 @@ export default function App() {
   };
 
   return (
-    <div className="wrap">
+    <div className={`wrap ${wizardStep !== null ? 'wizard-open' : ''}`}>
       <div className="head">
         <div>
           <h1>译流设置</h1>

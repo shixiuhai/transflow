@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { createVolcProvider } from '../src/core/provider/adapters/volc';
 
 const env = Object.fromEntries(
-  readFileSync(process.env.VOLC_ENV ?? '/root/.secrets/volc.env', 'utf8')
+  readFileSync(process.env.VOLC_ENV ?? join(homedir(), '.secrets', 'volc.env'), 'utf8')
     .split('\n')
     .filter((line) => line.includes('='))
     .map((line) => {

@@ -1,10 +1,12 @@
 /**
- * Real-provider check for Volcengine. Reads AK/SK from /root/.secrets/volc.env
+ * Real-provider check for Volcengine. Reads AK/SK from ~/.secrets/volc.env
  * (or VOLC_ENV) and runs a test + two sample translations.
  *
  *   pnpm volc:check
  */
 import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { createVolcProvider } from '../src/core/provider/adapters/volc';
 
 function loadEnv(path: string): Record<string, string> {
@@ -20,7 +22,7 @@ function loadEnv(path: string): Record<string, string> {
   return env;
 }
 
-const envPath = process.env.VOLC_ENV ?? '/root/.secrets/volc.env';
+const envPath = process.env.VOLC_ENV ?? join(homedir(), '.secrets', 'volc.env');
 const env = { ...loadEnv(envPath), ...process.env };
 const accessKey = env.VOLC_AK ?? '';
 const secretKey = env.VOLC_SK ?? '';

@@ -48,9 +48,9 @@ pnpm build      # 产物：.output/chrome-mv3
 密钥只写入 `chrome.storage.local`，不上传。命令行自检：
 
 ```bash
-mkdir -p /root/.secrets && chmod 700 /root/.secrets
-printf 'VOLC_AK=%s\nVOLC_SK=%s\n' 'AK' 'SK' > /root/.secrets/volc.env
-chmod 600 /root/.secrets/volc.env
+mkdir -p ~/.secrets && chmod 700 ~/.secrets
+printf 'VOLC_AK=%s\nVOLC_SK=%s\n' 'AK' 'SK' > ~/.secrets/volc.env
+chmod 600 ~/.secrets/volc.env
 pnpm volc:check
 ```
 

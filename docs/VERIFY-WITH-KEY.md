@@ -3,15 +3,15 @@
 ## 1. 写入密钥
 
 ```bash
-mkdir -p /root/.secrets && chmod 700 /root/.secrets
-printf 'VOLC_AK=%s\nVOLC_SK=%s\n' '你的 AK' '你的 SK' > /root/.secrets/volc.env
-chmod 600 /root/.secrets/volc.env
+mkdir -p ~/.secrets && chmod 700 ~/.secrets
+printf 'VOLC_AK=%s\nVOLC_SK=%s\n' '你的 AK' '你的 SK' > ~/.secrets/volc.env
+chmod 600 ~/.secrets/volc.env
 ```
 
 ## 2. 命令行自检
 
 ```bash
-cd /root/transflow
+cd transflow
 pnpm volc:check
 ```
 
