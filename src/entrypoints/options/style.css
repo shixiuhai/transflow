@@ -41,3 +41,20 @@ body { background: var(--tf-bg-soft); min-height: 100vh; }
 .usage-total { font-size: 24px; font-weight: 700; letter-spacing: -.02em; margin-bottom: 10px; }
 .usage-row { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--tf-muted); padding: 7px 0; border-top: 1px solid var(--tf-line); }
 .usage-row span:last-child { color: var(--tf-ink); }
+
+.banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 18px;
+  background: var(--tf-accent-soft); border: 1px solid color-mix(in srgb, var(--tf-accent) 22%, transparent);
+  border-radius: 12px; padding: 14px 18px; margin-bottom: 16px;
+}
+.banner b { display: block; font-size: 13px; margin-bottom: 2px; }
+.banner span { font-size: 12px; color: var(--tf-muted); }
+.wizard-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+.wizard-top b { display: block; font-size: 15px; }
+.wizard-top span { font-size: 11px; color: var(--tf-faint); }
+.wizard-dots { display: flex; gap: 6px; padding-top: 4px; }
+.wizard-dots i { width: 24px; height: 3px; border-radius: 2px; background: var(--tf-line); display: block; }
+.wizard-dots i.on { background: var(--tf-accent); }
+.wizard-actions { display: flex; align-items: center; gap: 8px; margin-top: 18px; }
+.wizard-actions .skip { margin-left: auto; border: 0; background: none; color: var(--tf-faint); font-size: 11px; padding: 4px 6px; }
+.wizard-actions .skip:hover { color: var(--tf-muted); }

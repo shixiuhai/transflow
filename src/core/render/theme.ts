@@ -73,19 +73,43 @@ function css(color: Rgba): string {
   return `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
 }
 
+const bgCache = new WeakMap<HTMLElement, Rgba>();
+const paletteCache = new Map<string, Palette>();
+
 function findBackground(el: HTMLElement): Rgba {
+  const cached = bgCache.get(el);
+  if (cached) return cached;
+
+  const chain: HTMLElement[] = [];
   let node: HTMLElement | null = el;
+  let result: Rgba = [255, 255, 255, 1];
+
   while (node) {
+    const hit = bgCache.get(node);
+    if (hit) {
+      result = hit;
+      break;
+    }
+    chain.push(node);
     const parsed = parseColor(getComputedStyle(node).backgroundColor);
-    if (parsed && parsed[3] > 0.8) return parsed;
+    if (parsed && parsed[3] > 0.8) {
+      result = parsed;
+      break;
+    }
     node = node.parentElement;
   }
-  return [255, 255, 255, 1];
+
+  for (const item of chain) bgCache.set(item, result);
+  return result;
 }
 
 export function samplePalette(el: HTMLElement): Palette {
   const bg = findBackground(el);
   const fg = parseColor(getComputedStyle(el).color) ?? [16, 20, 24, 1];
+  const key = `${bg.join(',')}|${fg.join(',')}`;
+  const cached = paletteCache.get(key);
+  if (cached) return cached;
+
   const dark = luminance(bg) < 0.45;
 
   let trans = mix(fg, bg, 0.62);
@@ -94,8 +118,10 @@ export function samplePalette(el: HTMLElement): Palette {
   const accent: Rgba = dark ? [45, 212, 191, 1] : [15, 118, 110, 1];
   const rule = `rgba(${accent[0]}, ${accent[1]}, ${accent[2]}, ${dark ? 0.5 : 0.38})`;
   const card = css(mix(accent, bg, 0.12));
-
-  return { bg: css(bg), fg: css(fg), dark, trans: css(trans), rule, card };
+  const palette: Palette = { bg: css(bg), fg: css(fg), dark, trans: css(trans), rule, card };
+  if (paletteCache.size > 200) paletteCache.clear();
+  paletteCache.set(key, palette);
+  return palette;
 }
 
 export function applyPalette(palette: Palette, mode: PageMode): void {

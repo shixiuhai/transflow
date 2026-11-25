@@ -75,6 +75,11 @@ export function renderBlock(block: PageBlock, translation: string, mode: PageMod
   node.dataset.tfId = block.id;
   node.dir = 'auto';
   node.textContent = translation;
+  if (block.palette) {
+    node.style.setProperty('--tf-trans-color', block.palette.trans);
+    node.style.setProperty('--tf-rule-color', block.palette.rule);
+    node.style.setProperty('--tf-card-bg', block.palette.card);
+  }
 
   if (el.tagName === 'TD' || el.tagName === 'TH') {
     el.appendChild(node);

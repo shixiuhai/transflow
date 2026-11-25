@@ -4,10 +4,14 @@
  * the host layout is not rewritten node by node.
  */
 
+import { samplePalette, type Palette } from '../render/theme';
+
 export interface PageBlock {
   id: string;
   el: HTMLElement;
   text: string;
+  /** Palette sampled from the block's own background, so dark sections adapt. */
+  palette?: Palette;
 }
 
 export interface CollectOptions {
@@ -88,7 +92,7 @@ export function collectBlocks(options: CollectOptions = {}): CollectResult {
 
     totalFound += 1;
     if (blocks.length >= maxSegments) continue;
-    blocks.push({ id: `b${blocks.length}`, el, text });
+    blocks.push({ id: `b${blocks.length}`, el, text, palette: samplePalette(el) });
   }
 
   return { blocks, totalFound };

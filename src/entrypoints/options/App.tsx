@@ -67,6 +67,8 @@ export default function App() {
   const [configs, setConfigs] = useState<Record<string, ProviderConfig>>({});
   const [status, setStatus] = useState<{ kind: 'ok' | 'err' | 'info'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [wizardStep, setWizardStep] = useState<number | null>(null);
+  const [wizardDone, setWizardDone] = useState(true);
 
   useEffect(() => {
     void (async () => {
@@ -81,6 +83,11 @@ export default function App() {
       }
       const current = await getUsage();
       setUsage({ total: current.total, byProvider: current.byProvider });
+
+      const done = await chrome.storage.local.get('tf:wizardDone');
+      const isDone = Boolean(done['tf:wizardDone']);
+      setWizardDone(isDone);
+      if (!isDone) setWizardStep(0);
     })();
   }, []);
 
@@ -89,6 +96,34 @@ export default function App() {
 
   const update = (key: keyof ProviderConfig, value: string) => {
     setConfigs((prev) => ({ ...prev, [active]: { ...prev[active], [key]: value } }));
+  };
+
+  const finishWizard = async () => {
+    setBusy(true);
+    try {
+      const response = await send<Settings>({
+        type: 'save-settings',
+        patch: {
+          provider: { active, fallback: [], configs },
+          language: { ...(settings?.language ?? { source: 'auto', target }), target },
+        } as unknown as Partial<Settings>,
+      });
+      if (response.ok) setSettings(response.data);
+      await chrome.storage.local.set({ 'tf:wizardDone': true });
+      setWizardDone(true);
+      setWizardStep(null);
+      setStatus({ kind: 'ok', text: '配置完成' });
+    } catch (error) {
+      setStatus({ kind: 'err', text: (error as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const skipWizard = async () => {
+    await chrome.storage.local.set({ 'tf:wizardDone': true });
+    setWizardDone(true);
+    setWizardStep(null);
   };
 
   const save = async () => {
@@ -148,6 +183,112 @@ export default function App() {
           <span className="mark">译</span>
         </div>
       </div>
+
+      {!wizardDone && wizardStep === null && (
+        <div className="banner">
+          <div>
+            <b>还没有配置翻译渠道</b>
+            <span>推荐火山引擎：每月前 200 万字符免费，国内直连。</span>
+          </div>
+          <button className="btn primary" onClick={() => setWizardStep(0)}>3 步完成配置</button>
+        </div>
+      )}
+
+      {wizardStep !== null && (
+        <div className="card wizard">
+          <div className="wizard-top">
+            <div>
+              <b>快速配置</b>
+              <span>第 {wizardStep + 1} / 3 步</span>
+            </div>
+            <div className="wizard-dots">
+              {[0, 1, 2].map((step) => (
+                <i key={step} className={step <= wizardStep ? 'on' : ''} />
+              ))}
+            </div>
+          </div>
+
+          {wizardStep === 0 && (
+            <>
+              <p className="desc">选一个翻译渠道。之后可以随时在设置里切换。</p>
+              <div className="providers">
+                {PROVIDERS.filter((provider) => provider.id !== 'mock').map((provider) => (
+                  <div
+                    key={provider.id}
+                    className={`provider ${active === provider.id ? 'sel' : ''}`}
+                    onClick={() => setActive(provider.id)}
+                  >
+                    <div className="name">
+                      {provider.name}
+                      <span className="radio" />
+                    </div>
+                    <div className="free">{provider.free}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {wizardStep === 1 && (
+            <>
+              <p className="desc">密钥只保存在本机浏览器。可先点「测试连接」验证。</p>
+              <div className="grid2">
+                {current.fields.map((field) => (
+                  <div className="field" key={String(field.key)} style={{ marginTop: 0 }}>
+                    <label htmlFor={`wizard-${String(field.key)}`}>{field.label}</label>
+                    <input
+                      id={`wizard-${String(field.key)}`}
+                      type={field.secret ? 'password' : 'text'}
+                      placeholder={field.placeholder}
+                      value={String(config[field.key] ?? '')}
+                      onChange={(e) => update(field.key, e.target.value)}
+                    />
+                  </div>
+                ))}
+              </div>
+              {current.keyUrl && (
+                <div className="hint">
+                  获取密钥：<a href={current.keyUrl} target="_blank" rel="noreferrer">{current.keyUrl}</a>
+                </div>
+              )}
+              <div className="wizard-actions">
+                <button className="btn" onClick={() => setWizardStep(0)}>上一步</button>
+                <button className="btn" onClick={() => void test()} disabled={busy}>测试连接</button>
+                {status && <span className={`status ${status.kind}`}>{status.text}</span>}
+              </div>
+            </>
+          )}
+
+          {wizardStep === 2 && (
+            <>
+              <p className="desc">选择默认目标语言。划词、整页、输入框都会使用它。</p>
+              <div className="field" style={{ marginTop: 0, maxWidth: 260 }}>
+                <label htmlFor="wizard-target">目标语言</label>
+                <select id="wizard-target" value={target} onChange={(e) => setTarget(e.target.value)}>
+                  {LANGUAGES.filter((lang) => lang.code !== 'auto').map((lang) => (
+                    <option key={lang.code} value={lang.code}>{lang.name}</option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
+
+          <div className="wizard-actions">
+            {wizardStep > 0 && <button className="btn" onClick={() => setWizardStep((wizardStep ?? 0) - 1)}>上一步</button>}
+            {wizardStep < 2 && (
+              <button className="btn primary" onClick={() => setWizardStep((wizardStep ?? 0) + 1)} disabled={busy}>
+                下一步
+              </button>
+            )}
+            {wizardStep === 2 && (
+              <button className="btn primary" onClick={() => void finishWizard()} disabled={busy}>
+                完成并保存
+              </button>
+            )}
+            <button className="skip" onClick={() => void skipWizard()}>稍后配置</button>
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <h2>翻译渠道</h2>
@@ -272,7 +413,7 @@ export default function App() {
       <div className="card">
         <h2>关于</h2>
         <p className="desc">
-          TransFlow v0.1.0 · MIT · 开源地址待发布。当前为开发预览版：划词翻译与文本翻译可用，整页翻译、输入框翻译、术语表正在开发中。
+          TransFlow v0.3.0 · MIT · 开源地址待发布。开发预览：整页双语、划词、输入框、术语表、用量统计与多渠道已可用。
         </p>
         {settings && <div className="hint">当前渠道：{settings.provider.active}</div>}
       </div>

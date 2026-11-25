@@ -1,17 +1,22 @@
 /**
- * End-to-end smoke against a manually started headless Chrome:
- *   google-chrome --headless=new --load-extension=.output/chrome-mv3 \
- *     --remote-debugging-port=9333 http://127.0.0.1:8125/article.html
- * Then: node scripts/smoke-cdp.mjs
+ * End-to-end smoke. Requires a Chrome for Testing / Chromium instance loaded
+ * with .output/chrome-mv3; see scripts/smoke.sh.
  */
 import puppeteer from 'puppeteer-core';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const DEBUG = process.env.CDP_URL || 'http://127.0.0.1:9333';
+const results = [];
+const check = (name, ok, detail = '') => {
+  results.push({ name, ok });
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`);
+};
 
 const browser = await puppeteer.connect({ browserURL: DEBUG, defaultViewport: null });
 const page = (await browser.pages()).find((p) => p.url().includes('8125/article.html'));
 if (!page) throw new Error('test page missing');
+
+let extensionId = '';
 
 async function connectSw(sw) {
   const ws = new WebSocket(sw.webSocketDebuggerUrl);
@@ -47,16 +52,12 @@ async function connectSw(sw) {
   };
 }
 
-let extensionId = '';
-
 async function swClient() {
   const list = await (await fetch(`${DEBUG}/json/list`)).json();
-  const sws = list.filter((t) => t.type === 'service_worker');
-  for (const sw of sws) {
+  for (const sw of list.filter((t) => t.type === 'service_worker')) {
     const client = await connectSw(sw);
     const name = await client.eval('chrome.runtime.getManifest().name').catch(() => '');
     if (name && (name.includes('TransFlow') || name.includes('译流'))) {
-      console.log('using extension', name, sw.url);
       extensionId = new URL(sw.url).host;
       return client;
     }
@@ -65,78 +66,171 @@ async function swClient() {
   throw new Error('TransFlow service worker not found');
 }
 
-// Reload first so the content script pings and wakes the service worker.
-await page.reload({ waitUntil: 'domcontentloaded' });
-await sleep(800);
-const sw = await swClient();
-
-const mode = process.env.MODE;
-if (mode) {
+async function patchSettings(expr) {
   await sw.eval(`chrome.storage.local.get('settings').then((s) => {
     const v = s.settings || {};
-    v.page = { ...(v.page || {}), mode: '${mode}' };
+    ${expr}
     return chrome.storage.local.set({ settings: v });
   })`);
 }
 
-const tabIds = await sw.eval('chrome.tabs.query({}).then((tabs) => tabs.map((t) => t.id))');
-console.log('tabs', tabIds);
-const tabId = tabIds[0];
+async function tabIdFor(urlPart) {
+  const ids = await sw.eval(`chrome.tabs.query({}).then((tabs) => tabs.filter((t) => t.url && t.url.includes(${JSON.stringify(urlPart)})).map((t) => t.id))`);
+  return ids[0];
+}
 
-const started = Date.now();
-const sent = await sw.eval(`chrome.tabs.sendMessage(${tabId}, {type:'page-translate'})`);
-console.log('page-translate', sent, Date.now() - started, 'ms');
+async function triggerPage(targetPage, tabId, poll = true) {
+  const start = Date.now();
+  const promise = sw.eval(`chrome.tabs.sendMessage(${tabId}, {type:'page-translate'})`);
+  let first = null;
+  if (poll) {
+    for (let i = 0; i < 240; i++) {
+      const n = await targetPage.evaluate(
+        () => document.querySelectorAll('.tf-block').length + document.querySelectorAll('[data-tf-original]').length,
+      );
+      if (n > 0) {
+        first = Date.now() - start;
+        break;
+      }
+      await sleep(25);
+    }
+  }
+  await promise;
+  return { first, total: Date.now() - start };
+}
 
-await sleep(700);
-const dom = await page.evaluate(() => ({
-  blocks: Array.from(document.querySelectorAll('.tf-block')).map((n) => n.textContent),
-  mode: document.documentElement.className,
-  color: getComputedStyle(document.documentElement).getPropertyValue('--tf-trans-color').trim(),
-  ambient: Boolean(document.getElementById('transflow-root')),
-}));
-console.log('blocks', dom.blocks.length, dom.mode, dom.color, 'ambient', dom.ambient);
-console.log('first', dom.blocks[0]);
+async function restore(tabId) {
+  await sw.eval(`chrome.tabs.sendMessage(${tabId}, {type:'page-restore'})`);
+  await sleep(200);
+}
+
+await page.reload({ waitUntil: 'domcontentloaded' });
+await sleep(800);
+const sw = await swClient();
+const tabId = await tabIdFor('8125/article.html');
+
+// --- 1. page translation, first paint, palette ---
+await patchSettings("v.page = { ...(v.page || {}), mode: 'blend', maxSegments: 2000 }; v.provider = { active: 'mock', fallback: [], configs: {} };");
+const first = await triggerPage(page, tabId);
+const count = await page.$$eval('.tf-block', (nodes) => nodes.length);
+check('page translate inserts blocks', count === 7, `${count} blocks`);
+check('first block appears quickly', first.first !== null && first.first < 1000, `${first.first}ms first / ${first.total}ms total`);
+
+const palettes = await page.$$eval('.tf-block', (nodes) =>
+  nodes.map((n) => n.style.getPropertyValue('--tf-trans-color')),
+);
+const darkPalette = palettes.some((c) => {
+  const m = c.match(/rgb\((\d+),/);
+  return m && Number(m[1]) > 120;
+});
+check('dark section gets its own palette', darkPalette, palettes.join(' | '));
+
 await page.screenshot({ path: '/tmp/tf_page.png' });
 
-const restored = await sw.eval(`chrome.tabs.sendMessage(${tabId}, {type:'page-restore'})`);
-await sleep(400);
-const after = await page.evaluate(() => ({
+// --- 2. restore ---
+await restore(tabId);
+const restored = await page.evaluate(() => ({
   blocks: document.querySelectorAll('.tf-block').length,
-  first: document.querySelector('article p')?.textContent?.slice(0, 40),
+  text: document.querySelector('article p')?.textContent?.slice(0, 24),
 }));
-console.log('restored', restored, after);
+check('restore removes all translations', restored.blocks === 0 && restored.text?.startsWith('We are told'), JSON.stringify(restored));
 
-// input-box translation: type, double space, undo
+// --- 3. cache hit ---
+const cacheBefore = await sw.eval(`chrome.storage.local.get(null).then((all) => Object.keys(all).filter((k) => k.startsWith('tf:cache:')).length)`);
+const cached = await triggerPage(page, tabId);
+const cacheAfter = await sw.eval(`chrome.storage.local.get(null).then((all) => Object.keys(all).filter((k) => k.startsWith('tf:cache:')).length)`);
+check('translation is cached', cacheAfter > 0, `${cacheBefore} -> ${cacheAfter} keys`);
+check('cache hit is faster', cached.total < first.total, `${cached.total}ms vs ${first.total}ms`);
+await restore(tabId);
+
+// --- 4. four render modes ---
+for (const mode of ['card', 'mask', 'replace']) {
+  await patchSettings(`v.page = { ...(v.page || {}), mode: '${mode}' };`);
+  await triggerPage(page, tabId, false);
+  const state = await page.evaluate(() => ({
+    cls: document.documentElement.className,
+    blocks: document.querySelectorAll('.tf-block').length,
+    replaced: document.querySelectorAll('[data-tf-original]').length,
+  }));
+  const ok = mode === 'replace' ? state.replaced > 0 : state.blocks > 0 && state.cls.includes(`tf-mode-${mode}`);
+  check(`render mode ${mode}`, ok, JSON.stringify(state));
+  await restore(tabId);
+}
+
+// --- 5. input translation + undo ---
+await patchSettings("v.page = { ...(v.page || {}), mode: 'blend' };");
 await page.click('#editor');
 await page.keyboard.type('hello world');
 await page.keyboard.press('Space');
 await page.keyboard.press('Space');
 await sleep(900);
 const inputValue = await page.$eval('#editor', (el) => el.value);
-console.log('input translation:', inputValue);
+check('input double-space translation', inputValue.includes('〔模拟'), inputValue);
 await page.keyboard.down('Control');
 await page.keyboard.press('KeyZ');
 await page.keyboard.up('Control');
 await sleep(250);
 const undone = await page.$eval('#editor', (el) => el.value);
-console.log('input undo:', undone);
+check('input undo restores original', undone.startsWith('hello world'), undone);
 
-// glossary: hello -> 你好 should survive the mock round-trip
-await sw.eval(`chrome.storage.local.get('settings').then((s) => {
-  const v = s.settings || {};
-  v.provider = { active: 'mock', fallback: [], configs: {} };
-  v.glossary = { entries: [{ source: 'hello', target: '你好' }] };
-  return chrome.storage.local.set({ settings: v });
-})`);
+// --- 6. glossary + usage via extension page ---
+await patchSettings("v.glossary = { entries: [{ source: 'hello', target: '你好' }] };");
 const popup = await browser.newPage();
 await popup.goto(`chrome-extension://${extensionId}/popup.html`, { waitUntil: 'domcontentloaded' });
 const glossary = await popup.evaluate(() =>
   chrome.runtime.sendMessage({ type: 'translate', segments: [{ id: 'g', text: 'hello world' }], from: 'en', to: 'zh' }),
 );
-console.log('glossary:', JSON.stringify(glossary));
-
+check('glossary term is applied', Boolean(glossary?.ok) && glossary.data.results[0].text.includes('你好'), JSON.stringify(glossary));
 const usage = await sw.eval(`chrome.storage.local.get('tf:usage').then((s) => JSON.stringify(s['tf:usage'] || null))`);
-console.log('usage:', usage);
+check('usage is recorded', Boolean(usage) && JSON.parse(usage).total > 0, usage);
 
+await patchSettings("v.provider = { active: 'volc', fallback: [], configs: {} };");
+const bad = await popup.evaluate(() =>
+  chrome.runtime.sendMessage({ type: 'translate', segments: [{ id: 'e', text: 'hello' }], from: 'en', to: 'zh' }),
+);
+check('missing credentials surfaces an error', bad.ok === false && /密钥|key|credential/i.test(bad.error.message), JSON.stringify(bad));
+await patchSettings("v.provider = { active: 'mock', fallback: [], configs: {} };");
+await popup.close();
+
+const optionsPage = await browser.newPage();
+await optionsPage.goto(`chrome-extension://${extensionId}/options.html`, { waitUntil: 'domcontentloaded' });
+await sleep(700);
+const hasWizard = await optionsPage.evaluate(() => Boolean(document.querySelector('.wizard')));
+check('first-run wizard opens', hasWizard);
+await optionsPage.close();
+
+// --- 7. segment cap on a long page ---
+await patchSettings("v.page = { ...(v.page || {}), maxSegments: 5 };");
+const longPage = await browser.newPage();
+await longPage.goto('http://127.0.0.1:8125/long.html', { waitUntil: 'domcontentloaded' });
+await sleep(700);
+const longTab = await tabIdFor('8125/long.html');
+await triggerPage(longPage, longTab, false);
+const longCount = await longPage.$$eval('.tf-block', (nodes) => nodes.length);
+check('segment cap is enforced', longCount === 5, `${longCount} blocks`);
+await restore(longTab);
+
+const perf = await longPage.evaluate(() => {
+  const originals = Array.from(document.querySelectorAll('p'));
+  const body = document.querySelector('body');
+  const rounds = Math.ceil(1000 / originals.length);
+  for (let i = 0; i < rounds; i++) for (const p of originals) body.appendChild(p.cloneNode(true));
+  const blocks = Array.from(document.querySelectorAll('p')).slice(0, 1000);
+  const started = performance.now();
+  for (const p of blocks) {
+    const node = document.createElement('div');
+    node.className = 'tf-block';
+    node.textContent = '译文';
+    p.insertAdjacentElement('afterend', node);
+  }
+  void document.body.getBoundingClientRect();
+  return { count: blocks.length, ms: Math.round(performance.now() - started) };
+});
+check('1,000 block insertion under 500ms', perf.ms < 500, `${perf.ms}ms / ${perf.count} blocks`);
+await longPage.close();
+
+const failed = results.filter((r) => !r.ok);
+console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
 sw.close();
 await browser.disconnect();
+if (failed.length > 0) process.exit(1);
