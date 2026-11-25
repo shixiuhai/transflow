@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import type { ProviderConfig } from '../../core/provider/types';
 import type { Settings } from '../../core/settings/schema';
 import type { RuntimeMessage, RuntimeResponse } from '../../core/messages';
+import { LANGUAGES } from '../../core/lang';
+import type { PageMode } from '../../core/settings/schema';
 
 const send = <T,>(message: RuntimeMessage) =>
   chrome.runtime.sendMessage(message) as Promise<RuntimeResponse<T>>;
@@ -46,6 +48,8 @@ const PROVIDERS: ProviderInfo[] = [
 export default function App() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [active, setActive] = useState('volc');
+  const [target, setTarget] = useState('zh');
+  const [mode, setMode] = useState<PageMode>('blend');
   const [configs, setConfigs] = useState<Record<string, ProviderConfig>>({});
   const [status, setStatus] = useState<{ kind: 'ok' | 'err' | 'info'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -57,6 +61,8 @@ export default function App() {
         setSettings(response.data);
         setActive(response.data.provider.active === 'mock' ? 'volc' : response.data.provider.active);
         setConfigs(response.data.provider.configs);
+        setTarget(response.data.language.target);
+        setMode(response.data.page.mode);
       }
     })();
   }, []);
@@ -76,6 +82,8 @@ export default function App() {
         type: 'save-settings',
         patch: {
           provider: { active, fallback: [], configs },
+          language: { ...(settings?.language ?? { source: 'auto', target }), target },
+          page: { ...(settings?.page ?? { mode, autoTranslate: false, maxSegments: 2000, includeIframes: false, rules: [] }), mode },
         } as unknown as Partial<Settings>,
       });
       if (!response.ok) throw new Error(response.error.message);
@@ -175,6 +183,34 @@ export default function App() {
           <button className="btn" onClick={() => void test()} disabled={busy}>
             测试连接
           </button>
+          {status && <span className={`status ${status.kind}`}>{status.text}</span>}
+        </div>
+      </div>
+
+      <div className="card">
+        <h2>阅读偏好</h2>
+        <p className="desc">译文样式立即作用于已翻译页面；目标语言用于划词与整页翻译。</p>
+        <div className="grid2">
+          <div className="field" style={{ marginTop: 0 }}>
+            <label htmlFor="targetLang">目标语言</label>
+            <select id="targetLang" value={target} onChange={(e) => setTarget(e.target.value)}>
+              {LANGUAGES.filter((lang) => lang.code !== 'auto').map((lang) => (
+                <option key={lang.code} value={lang.code}>{lang.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="field" style={{ marginTop: 0 }}>
+            <label htmlFor="pageMode">译文样式</label>
+            <select id="pageMode" value={mode} onChange={(e) => setMode(e.target.value as PageMode)}>
+              <option value="blend">融入 · 左细线（推荐）</option>
+              <option value="card">轻卡片 · 彩色底</option>
+              <option value="mask">遮罩 · 悬停显形</option>
+              <option value="replace">仅译文 · 替换原文</option>
+            </select>
+          </div>
+        </div>
+        <div className="actions">
+          <button className="btn primary" onClick={() => void save()} disabled={busy}>保存偏好</button>
           {status && <span className={`status ${status.kind}`}>{status.text}</span>}
         </div>
       </div>

@@ -215,7 +215,9 @@ export default defineContentScript({
       layer.appendChild(card);
 
       try {
-        const response = await sendTranslate([{ id: 'selection', text }], 'auto', 'zh');
+        const settings = await getSettings().catch(() => null);
+        const target = settings?.selection.target || settings?.language.target || 'zh';
+        const response = await sendTranslate([{ id: 'selection', text }], 'auto', target);
         if (!card) return;
         const textEl = card.querySelector('.text') as HTMLElement;
         const metaEl = card.querySelector('.meta') as HTMLElement;
@@ -457,6 +459,13 @@ export default defineContentScript({
         closeCard();
       }
     });
+
+    // Wake the MV3 service worker on page load so settings/cache requests are warm.
+    try {
+      void chrome.runtime.sendMessage({ type: 'ping' });
+    } catch {
+      // Ignore when the extension context is invalidated (e.g. after an update).
+    }
 
     chrome.runtime.onMessage.addListener((message: RuntimeMessage, _sender, sendResponse) => {
       void (async () => {

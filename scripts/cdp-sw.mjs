@@ -1,0 +1,14 @@
+const list = await (await fetch('http://127.0.0.1:9333/json/list')).json();
+const sw = list.find((t) => t.type === 'service_worker');
+console.log('sw', sw?.url);
+if (!sw) process.exit(1);
+const ws = new WebSocket(sw.webSocketDebuggerUrl);
+const pending = new Map(); let seq = 0;
+ws.onmessage = (e) => { const m = JSON.parse(e.data); if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); } };
+await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
+const send = (method, params={}) => { const id=++seq; ws.send(JSON.stringify({id,method,params})); return new Promise(r=>pending.set(id,r)); };
+const withTimeout = (p, ms) => Promise.race([p, new Promise(r=>setTimeout(()=>r('TIMEOUT'), ms))]);
+console.log('enable', await withTimeout(send('Runtime.enable'), 3000));
+console.log('eval1', JSON.stringify(await withTimeout(send('Runtime.evaluate', {expression:'1+1', returnByValue:true}), 3000)));
+console.log('tabs', JSON.stringify(await withTimeout(send('Runtime.evaluate', {expression:'chrome.tabs.query({}).then(t=>t.map(x=>x.url))', awaitPromise:true, returnByValue:true}), 5000)));
+ws.close();

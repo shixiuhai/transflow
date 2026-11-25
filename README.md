@@ -2,7 +2,7 @@
 
 > 快速、开源的双语阅读层。整页双语、划词翻译、输入框翻译，默认接入国内低延迟渠道。
 
-**状态：v0.1.0 开发预览。** 文本翻译与划词翻译已可用；整页双语、输入框翻译、术语表、用量面板正在开发中。
+**状态：v0.2.0 开发预览。** 文本翻译、划词翻译、整页双语（4 种样式 / 环境条 / 缓存 / 取消还原）已可用；输入框翻译、术语表、用量面板、百度渠道正在开发中。
 
 ## 为什么做它
 
@@ -19,7 +19,12 @@ pnpm dev        # 启动开发模式（自动打开 Chrome）
 pnpm build      # 产物：.output/chrome-mv3
 pnpm test       # 单元测试
 pnpm typecheck
+pnpm smoke      # 端到端冒烟（需要 Chrome for Testing / Chromium）
 ```
+
+`pnpm smoke` 会启动本地 fixture、加载扩展、通过 service worker 触发整页翻译、断言译文块与还原，并截图到 `/tmp/tf_page.png`。默认使用 Playwright 缓存里的 Chrome for Testing；可通过 `CHROME_BIN` 指定。
+
+可选：`MODE=card pnpm smoke` 验证不同译文样式（blend / card / mask / replace）。
 
 加载扩展：`chrome://extensions` → 开发者模式 → 加载已解压的扩展程序 → 选择 `.output/chrome-mv3`。
 
@@ -45,6 +50,8 @@ src/
 tests/unit/        单元测试
 ```
 
+- 整页翻译是块级渲染：译文作为原文块的 sibling 插入，不重写原 DOM；支持 blend / card / mask / replace 四种样式，按页面背景自动配色。
+- 缓存：L1 内存 + `chrome.storage.local`（30 天 TTL），整页去重后按块命中，二次翻译 0 请求。
 - Provider 适配器统一接口，渠道差异（批量、语言码、签名）收敛在 `core/provider/`。
 - 火山引擎使用 V4 签名（WebCrypto HMAC-SHA256），在 background 中完成，不经过页面。
 - 注入 UI 使用 Shadow DOM，避免污染站点样式。

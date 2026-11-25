@@ -34,6 +34,10 @@ const CSS = `
 .tf-mode-mask .${BLOCK_CLASS}:focus {
   filter: none;
 }
+h1 + .${BLOCK_CLASS} { font-size: 0.52em; font-weight: 600; }
+h2 + .${BLOCK_CLASS} { font-size: 0.66em; font-weight: 600; }
+h3 + .${BLOCK_CLASS} { font-size: 0.82em; }
+h4 + .${BLOCK_CLASS}, h5 + .${BLOCK_CLASS}, h6 + .${BLOCK_CLASS} { font-size: 0.9em; }
 @keyframes tf-in {
   from { opacity: 0; transform: translateY(2px); }
   to { opacity: 1; transform: translateY(0); }
