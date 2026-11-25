@@ -636,6 +636,9 @@ export default function App() {
       <div className="card">
         <h2>单词本</h2>
         <p className="desc">划词气泡或翻译弹窗里的「＋单词本」会保存到这里；UUID 是跨设备恢复的唯一凭证。</p>
+        <p className="desc" style={{ color: 'var(--tf-warn)' }}>
+          同步会经过作者自建的 <code>transflow.yizhiweb.top</code> 服务，仅用于跨设备恢复；实现较简单，不保证稳定性或永久存储，重要词库请定期导出 JSON。
+        </p>
 
         <div className="vocab-uuid">
           <code>{vocab?.uuid ?? '加载中…'}</code>

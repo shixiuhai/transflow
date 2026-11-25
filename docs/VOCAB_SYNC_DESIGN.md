@@ -4,6 +4,8 @@
 > 日期：2026-11-25
 > 范围：Chrome 扩展 TransFlow v1.4.0 + platform-wx 后端 transflow 模块 + Cloudflare/FRP 部署
 > 目标：先确认需求与边界，再执行删除/新增/发布。
+>
+> **对外说明（README/隐私政策必须保留）**：启用同步后，词条会发送到作者自建的 `transflow.yizhiweb.top`，仅用于跨设备恢复，不是翻译代理；该服务为个人简单实现，不保证稳定性/永久存储，建议定期导出备份。
 
 ---
 
