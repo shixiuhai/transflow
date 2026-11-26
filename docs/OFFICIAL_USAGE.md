@@ -1,69 +1,87 @@
 # 官方用量 / 消费查询
 
-> 状态：v1.9.0（2026-11-26）
-> 范围：火山引擎官方账单；百度/OpenAI 兼容渠道的限制说明
+> 状态：v1.10.0（2026-11-26）
+> 范围：火山引擎、OpenAI 官方、DeepSeek、百度/GLM/Qwen 的限制说明
 
-## 1. 能查到什么
+## 1. 支持矩阵
 
-| 数据 | 来源 | 真实性 |
-|---|---|---|
-| 本机翻译字符数 | `tf:usage` 本地存储 | 本机真实调用量（仅本扩展） |
-| 火山账户本月实付 | 火山费用中心 `ListBillOverviewByProd` | **官方账单** |
-| 火山机器翻译计费 | 同上，按产品名匹配「翻译/Translate」 | 官方账单行（免费额度内可能没有行） |
-| 火山免费额度内字符 | 无公开 API | 只能用本机统计估算 |
+| 渠道 | 官方数据 | 接口 | 真实性 |
+|---|---|---|---|
+| 火山引擎 | 账户本月实付、机器翻译计费、产品明细 | 费用中心 `ListBillOverviewByProd` | **官方账单** |
+| OpenAI 官方 | 本月输入/输出 token、请求数、费用 | `GET /v1/organization/usage/completions` + `/v1/organization/costs` | **官方用量/费用**（需 Admin key） |
+| DeepSeek | 账户余额（充值/赠金） | `GET https://api.deepseek.com/user/balance` | **官方余额**（非月度用量） |
+| 百度翻译 | 无 | 开放平台未提供用量/消费 API | 只能本机统计 |
+| GLM / Qwen / 其他兼容 | 取决于服务商 | 未统一开放 | 扩展不猜测，提示去控制台 |
 
-## 2. 火山账单接口
+本机字符数仍是 `tf:usage` 本地统计；官方数据只在上方面板展示。
+
+## 2. 火山引擎
 
 - Endpoint：`https://billing.volcengineapi.com`
-- Service：`billing`
-- Region：`cn-north-1`
-- Action：`ListBillOverviewByProd`
-- Version：`2022-01-01`
-- 签名：V4（复用扩展现有 `signVolcRequest`，只签 `x-content-sha256` / `x-date`）
-- 参数：`Action`/`Version` 在 query；`BillPeriod`/`Limit`/`Offset`/`NeedRecordNum`/`IgnoreZero` 在 JSON body
-- 返回：`Result.List[]`，每行含 `ProductZh`、`PayableAmount`、`Currency`
+- Service：`billing`，Region：`cn-north-1`
+- Action：`ListBillOverviewByProd`，Version：`2022-01-01`
+- 签名：V4（`x-content-sha256` / `x-date`）
+- Query：`Action` / `Version`；Body：`BillPeriod` / `Limit` / `Offset` / `NeedRecordNum` / `IgnoreZero`
+- 返回：`Result.List[]`（`ProductZh`、`PayableAmount`、`Currency`）
 
-实现：`src/core/usage/billing.ts`
-
-## 3. 权限
-
-火山 IAM 给 AK 所属子用户添加系统策略：
-
-```
-BillingCenterReadOnlyAccess
-```
-
-即「费用中心全部只读权限」，包含费用中心页面和相关 OpenAPI 的查询/导出。
-
+权限：`BillingCenterReadOnlyAccess`（费用中心全部只读）。
 参考：[费用中心权限管理](https://docs.volcengine.com/docs/BillingCenter/Permissionmanagement?lang=zh)
 
-没有权限时，扩展会提示：
-> 当前 AK 没有费用中心只读权限。请在火山 IAM 给子用户添加 BillingCenterReadOnlyAccess（费用中心全部只读）后重试。
+限制：
 
-## 4. 已知限制
+- 账单延迟 1–4 小时。
+- 只含已计费产品；免费额度内的翻译不会出现在账单。
+- 账户实付含账号下其它火山产品，UI 单独列出“机器翻译”行。
+- 火山没有公开“按字符查询本月翻译用量”的 OpenAPI。
 
-- 账单数据延迟 **1–4 小时**，刚调用完不会立刻出现。
-- 账单只包含**已计费**产品；200 万字符免费额度内的翻译不会出现在账单里。
-- 账户实付包含该账号下所有火山产品（例如 TTS），所以 UI 同时展示：
-  - 账户本月实付
-  - 机器翻译计费（没有行时显示“暂无计费，可能在免费额度内”）
-- 火山没有公开“按字符查询本月翻译用量”的 OpenAPI；字符数仍以本机统计为准。
-- 百度翻译开放平台没有公开用量查询 API；OpenAI 兼容渠道取决于服务商是否提供 admin usage API，扩展不强行猜测。
+## 3. OpenAI 官方
 
-## 5. UI
+Base URL 必须是 `https://api.openai.com/...`（不是 DeepSeek/GLM 代理）。
 
-设置 → 用量：
+接口：
 
-- 本机字符/渠道分布（原有）
-- 「火山引擎官方账单」卡片
-  - 查询/刷新按钮
-  - 账户本月实付
-  - 机器翻译计费
-  - 账单产品数 + 可展开明细
-  - 延迟/权限说明
+```
+GET https://api.openai.com/v1/organization/usage/completions
+  ?start_time=<本月 1 日 UTC 秒>&end_time=<now>&bucket_width=1d&limit=31
 
-## 6. 验证
+GET https://api.openai.com/v1/organization/costs
+  ?start_time=...&end_time=...&bucket_width=1d&limit=31
+```
 
-- 真实 AK 调用返回 200：账户本月实付 `¥8.19`，机器翻译暂无计费（免费额度内）。
-- `parseVolcBilling` 单测：账户合计、翻译行、空账单。
-- 扩展内实际点击「查询官方账单」成功，无 CORS 问题。
+认证：`Authorization: Bearer <Admin key>`。
+
+- 需要 **组织管理员 Admin key**（`sk-admin_…`），普通项目 key 返回 401/403。
+- 用量按 UTC 自然月汇总；费用可能因权限/账期延迟为空。
+- 参考：[OpenAI Organization Usage](https://developers.openai.com/api/reference/cli/resources/admin/subresources/organization/subresources/usage/methods/completions)
+
+## 4. DeepSeek
+
+```
+GET https://api.deepseek.com/user/balance
+Authorization: Bearer <API key>
+```
+
+返回 `balance_infos[]`（CNY/USD、total/granted/topped_up）。这是**官方余额**，不是月度用量；DeepSeek 未公开 usage API。
+
+参考：[DeepSeek Get User Balance](https://api-docs.deepseek.com/api/get-user-balance/)
+
+## 5. 百度 / GLM / Qwen
+
+- 百度翻译开放平台没有公开的用量/消费查询 API；只保留本机字符统计。
+- GLM、Qwen 等 OpenAI 兼容端点没有统一 usage API；扩展不会把 key 发到非对应厂商的接口。
+- 如果后续服务商开放，按 `src/core/usage/openai.ts` 的模式接。
+
+## 6. 安全
+
+- key 只存 `chrome.storage.local`，只发往对应官方域名：
+  - 火山：`billing.volcengineapi.com`
+  - OpenAI：`api.openai.com`
+  - DeepSeek：`api.deepseek.com`
+- 不经过 TransFlow 自建服务器。
+- 查询结果只存组件内存，不写日志。
+
+## 7. 验证
+
+- 火山真实 AK：HTTP 200，账户实付 ¥8.19，机器翻译暂无计费（免费额度内）。
+- 单元测试：火山账单解析、OpenAI token/cost 解析、DeepSeek 余额解析（51 项总）。
+- 扩展内点击查询成功，无 CORS 问题。

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.10.0
+
+- 用量页新增 OpenAI / DeepSeek 官方数据：
+  - OpenAI 官方（`api.openai.com`）：本月输入/输出 token、请求数、费用；需要组织 Admin key。
+  - DeepSeek：官方账户余额（充值/赠金）；DeepSeek 无月度用量 API。
+  - 其它兼容端点（GLM/Qwen 等）明确提示去服务商控制台。
+- 百度翻译明确提示：开放平台未提供用量/消费 API，仅本机统计。
+- 官方数据按 Base URL 识别，key 只发往对应官方域名。
+- 单测增至 51。
+- 文档：`docs/OFFICIAL_USAGE.md`。
+
 ## 1.9.0
 
 - 新增火山引擎官方账单查询：设置 → 用量 →「查询官方账单」。

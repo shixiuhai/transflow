@@ -6,6 +6,7 @@ import { LANGUAGES } from '../../core/lang';
 import { formatGlossary, parseGlossary } from '../../core/glossary';
 import { estimateCost, getUsage } from '../../core/usage';
 import { fetchVolcBilling, type BillingResult } from '../../core/usage/billing';
+import { fetchOfficialUsage, type OfficialUsage } from '../../core/usage/openai';
 import { formatShortcut, normalizeShortcut } from '../../core/shortcut';
 import {
   dueVocabItems,
@@ -114,6 +115,9 @@ export default function App() {
   const [billing, setBilling] = useState<BillingResult | null>(null);
   const [billingError, setBillingError] = useState('');
   const [billingBusy, setBillingBusy] = useState(false);
+  const [official, setOfficial] = useState<OfficialUsage | null>(null);
+  const [officialError, setOfficialError] = useState('');
+  const [officialBusy, setOfficialBusy] = useState(false);
   const [configs, setConfigs] = useState<Record<string, ProviderConfig>>({});
   const [status, setStatus] = useState<{ kind: 'ok' | 'err' | 'info'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -246,6 +250,18 @@ export default function App() {
       setBillingError((error as Error).message);
     } finally {
       setBillingBusy(false);
+    }
+  };
+
+  const queryOfficial = async () => {
+    setOfficialBusy(true);
+    setOfficialError('');
+    try {
+      setOfficial(await fetchOfficialUsage(configs.openai ?? {}));
+    } catch (error) {
+      setOfficialError((error as Error).message);
+    } finally {
+      setOfficialBusy(false);
     }
   };
 
@@ -620,6 +636,8 @@ export default function App() {
           <div className="hint">加载中…</div>
         )}
 
+        <div className="hint">百度翻译开放平台未提供用量/消费查询 API；百度渠道仅保留本机统计。</div>
+
         <div className="billing">
           <div className="billing-head">
             <div>
@@ -664,7 +682,56 @@ export default function App() {
             <div className="status err">{billingError}</div>
           ) : (
             <div className="hint">
-              需要火山 AK 具备 <code>BillingCenterReadOnlyAccess</code>（费用中心全部只读）；百度翻译暂未开放用量查询接口。
+              需要火山 AK 具备 <code>BillingCenterReadOnlyAccess</code>（费用中心全部只读）。
+            </div>
+          )}
+        </div>
+
+        <div className="billing">
+          <div className="billing-head">
+            <div>
+              <b>OpenAI / DeepSeek 官方数据</b>
+              <span>按 Base URL 识别</span>
+            </div>
+            <button
+              className="btn"
+              onClick={() => void queryOfficial()}
+              disabled={officialBusy || !configs.openai?.apiKey}
+            >
+              {officialBusy ? '查询中…' : official ? '刷新' : '查询官方数据'}
+            </button>
+          </div>
+          {official ? (
+            <div className="billing-body">
+              {official.kind === 'usage' ? (
+                <>
+                  <div className="billing-total">
+                    {official.inputTokens?.toLocaleString() ?? 0} 输入 / {official.outputTokens?.toLocaleString() ?? 0} 输出 tokens
+                  </div>
+                  <div className="billing-row"><span>请求数</span><span>{official.requests?.toLocaleString() ?? 0}</span></div>
+                  <div className="billing-row"><span>官方费用</span><span>{official.cost == null ? '需 costs 权限' : `$${official.cost.toFixed(2)} ${official.currency?.toUpperCase() ?? 'USD'}`}</span></div>
+                  <div className="hint">OpenAI 组织用量接口需要 Admin key（sk-admin_…）；数据按 UTC 自然月汇总。</div>
+                </>
+              ) : (
+                <>
+                  <div className="billing-total">
+                    账户余额 {official.balances?.[0] ? `${official.balances[0].currency} ${official.balances[0].total}` : '—'}
+                  </div>
+                  {official.balances?.map((balance) => (
+                    <div className="billing-row" key={balance.currency}>
+                      <span>{balance.currency} · 充值 / 赠金</span>
+                      <span>{balance.toppedUp} / {balance.granted}</span>
+                    </div>
+                  ))}
+                  <div className="hint">DeepSeek 公开的是余额接口，没有月度用量 API；余额为官方实时数据。</div>
+                </>
+              )}
+            </div>
+          ) : officialError ? (
+            <div className="status err">{officialError}</div>
+          ) : (
+            <div className="hint">
+              配置 OpenAI 兼容渠道后可查询：OpenAI 官方返回 token 用量/费用；DeepSeek 返回官方余额；GLM/Qwen 等请在服务商控制台查看。
             </div>
           )}
         </div>
