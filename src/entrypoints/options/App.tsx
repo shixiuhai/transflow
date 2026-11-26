@@ -9,6 +9,7 @@ import { formatShortcut, normalizeShortcut } from '../../core/shortcut';
 import {
   clearVocabLocal,
   deleteVocabItem,
+  dueVocabItems,
   exportVocabCsv,
   exportVocabJson,
   isVocabUuid,
@@ -107,6 +108,7 @@ export default function App() {
   const [mode, setMode] = useState<PageMode>('blend');
   const [selectionTrigger, setSelectionTrigger] = useState<'button' | 'shortcut' | 'both'>('both');
   const [selectionKeys, setSelectionKeys] = useState('t');
+  const [bubbleStyle, setBubbleStyle] = useState<'auto' | 'paper' | 'glass' | 'contrast'>('paper');
   const [others, setOthers] = useState<{ id: string; name: string; version: string }[]>([]);
   const [manageState, setManageState] = useState<'unknown' | 'ready' | 'denied'>('unknown');
   const [vocab, setVocab] = useState<VocabState | null>(null);
@@ -132,6 +134,7 @@ export default function App() {
         setMode(response.data.page.mode);
         setSelectionTrigger(response.data.selection.trigger);
         setSelectionKeys(response.data.selection.keys);
+        setBubbleStyle(response.data.selection.bubbleStyle ?? 'paper');
         setGlossaryText(formatGlossary(response.data.glossary.entries));
       }
       const current = await getUsage();
@@ -301,6 +304,7 @@ export default function App() {
             ...(settings?.selection ?? { enabled: true, target, trigger: selectionTrigger, keys: selectionKeys }),
             trigger: selectionTrigger,
             keys: selectionKeys,
+            bubbleStyle,
           },
           glossary: { entries: parseGlossary(glossaryText) },
         } as unknown as Partial<Settings>,
@@ -561,6 +565,19 @@ export default function App() {
             <label htmlFor="selectionKeys">快捷键</label>
             <ShortcutRecorder value={selectionKeys} onChange={setSelectionKeys} />
           </div>
+          <div className="field" style={{ marginTop: 0 }}>
+            <label htmlFor="bubbleStyle">气泡样式</label>
+            <select
+              id="bubbleStyle"
+              value={bubbleStyle}
+              onChange={(e) => setBubbleStyle(e.target.value as typeof bubbleStyle)}
+            >
+              <option value="paper">暖纸 · 护眼（推荐）</option>
+              <option value="auto">跟随页面 · 自动深浅</option>
+              <option value="glass">毛玻璃 · 轻透</option>
+              <option value="contrast">高对比 · 深色</option>
+            </select>
+          </div>
         </div>
         <div className="hint">
           点一下输入框再按组合键即可录制。默认是字母 t（直接按小写 t；输入法处于中文组合状态时可能不触发，可先用 Alt+t）。也可以录 r 或组合键。若同时看到 1.1.x 旧版，请在 chrome://extensions 移除旧版（ID 以 dnag 开头）。
@@ -658,7 +675,7 @@ export default function App() {
         <div className="grid2">
           <div className="field" style={{ marginTop: 0 }}>
             <label htmlFor="restoreUuid">用 UUID 恢复</label>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div className="vocab-restore">
               <input
                 id="restoreUuid"
                 value={restoreUuid}
@@ -689,7 +706,14 @@ export default function App() {
         </div>
 
         <div className="vocab-actions">
-          <button className="btn primary" onClick={() => void syncVocabNow()} disabled={vocabBusy}>立即同步</button>
+          <button
+            className="btn primary"
+            onClick={() => void chrome.tabs.create({ url: chrome.runtime.getURL('review.html') })}
+            disabled={!vocab?.items.length}
+          >
+            开始复习{(vocab ? dueVocabItems(vocab.items).length : 0) > 0 ? ` · ${dueVocabItems(vocab!.items).length}` : ''}
+          </button>
+          <button className="btn" onClick={() => void syncVocabNow()} disabled={vocabBusy}>立即同步</button>
           <span className="hint">
             {vocab?.sync.lastSyncAt
               ? `上次同步：${new Date(vocab.sync.lastSyncAt).toLocaleString()}`
@@ -746,7 +770,7 @@ export default function App() {
       <div className="card">
         <h2>关于</h2>
         <p className="desc">
-          TransFlow v1.1.0 · MIT · github.com/shixiuhai/transflow
+          TransFlow v{chrome.runtime.getManifest().version} · MIT · github.com/shixiuhai/transflow
         </p>
         {settings && <div className="hint">当前渠道：{settings.provider.active}</div>}
       </div>

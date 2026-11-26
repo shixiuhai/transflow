@@ -19,7 +19,7 @@ body { background: var(--tf-bg-soft); min-height: 100vh; }
 .field label { display: block; font-size: 12px; color: var(--tf-muted); margin-bottom: 6px; }
 .field input, .field select { width: 100%; height: 38px; border: 1px solid var(--tf-line); border-radius: 9px; padding: 0 12px; background: var(--tf-bg); }
 .field input:focus, .field select:focus { outline: none; border-color: var(--tf-accent); box-shadow: 0 0 0 3px var(--tf-accent-soft); }
-.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
 .actions { display: flex; align-items: center; gap: 10px; margin-top: 20px; }
 .btn { height: 38px; padding: 0 16px; border-radius: 9px; border: 1px solid var(--tf-line); background: var(--tf-bg); font-size: 13px; }
 .btn.primary { background: var(--tf-accent); border-color: var(--tf-accent); color: #fff; font-weight: 600; }
@@ -82,3 +82,25 @@ body { background: var(--tf-bg-soft); min-height: 100vh; }
 .vocab-item b { display:block; font-size:13px; }
 .vocab-item span { display:block; font-size:12px; color:var(--tf-muted); margin-top:2px; }
 .vocab-item small { display:block; font-size:10px; color:var(--tf-faint); margin-top:3px; }
+
+.vocab-uuid code { min-width: 0; word-break: break-all; }
+.vocab-actions .btn, .vocab-search .btn { flex: 0 0 auto; white-space: nowrap; }
+.vocab-actions .hint { flex: 1 1 100%; }
+.vocab-search { flex-wrap: wrap; }
+.vocab-search input { flex: 1 1 190px; min-width: 0; }
+.vocab-search span { white-space: nowrap; }
+.vocab-item { flex-wrap: wrap; }
+.vocab-item > div { min-width: 0; flex: 1 1 220px; }
+.vocab-item b, .vocab-item span { overflow-wrap: anywhere; }
+@media (max-width: 560px) {
+  .wrap { padding: 20px 14px 40px; }
+  .grid2 { grid-template-columns: 1fr; }
+  .card { padding: 16px; }
+  .vocab-uuid { align-items: flex-start; }
+  .vocab-uuid code { flex: 1 1 100%; min-width: 0; }
+  .vocab-actions .btn, .vocab-search .btn { flex: 1 1 auto; }
+}
+
+.vocab-restore { display: flex; gap: 8px; }
+.vocab-restore input { flex: 1 1 auto; min-width: 0; }
+.vocab-restore .btn { flex: 0 0 auto; white-space: nowrap; }

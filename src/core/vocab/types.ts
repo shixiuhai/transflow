@@ -5,10 +5,18 @@ export interface VocabItem {
   sourceLang: string;
   targetLang: string;
   context?: string;
+  note?: string;
+  tags?: string[];
   url?: string;
   title?: string;
   createdAt: number;
   updatedAt: number;
+  /** Review progress (SM-2 lite). */
+  mastery?: number;
+  reviewCount?: number;
+  lastReviewedAt?: number;
+  nextReviewAt?: number;
+  intervalDays?: number;
 }
 
 export interface VocabSyncState {
@@ -33,6 +41,8 @@ export interface VocabDraft {
   sourceLang: string;
   targetLang: string;
   context?: string;
+  note?: string;
+  tags?: string[];
   url?: string;
   title?: string;
 }

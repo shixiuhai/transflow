@@ -25,6 +25,8 @@ export interface Settings {
     trigger: 'button' | 'shortcut' | 'both';
     /** Normalized shortcut, e.g. `alt+s` or `t`. */
     keys: string;
+    /** Selection bubble surface. */
+    bubbleStyle: 'auto' | 'paper' | 'glass' | 'contrast';
   };
   input: { enabled: boolean };
   ui: { theme: 'auto' | 'light' | 'dark'; reduceMotion: boolean };
@@ -52,7 +54,7 @@ export const DEFAULT_SETTINGS: Settings = {
     includeIframes: false,
     rules: [],
   },
-  selection: { enabled: true, target: 'zh', trigger: 'both', keys: 't' },
+  selection: { enabled: true, target: 'zh', trigger: 'both', keys: 't', bubbleStyle: 'paper' },
   input: { enabled: true },
   ui: { theme: 'auto', reduceMotion: false },
   glossary: { entries: [] },

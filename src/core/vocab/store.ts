@@ -114,6 +114,47 @@ export async function setVocabUuid(uuid: string): Promise<VocabState> {
   return state;
 }
 
+export type ReviewGrade = 'again' | 'hard' | 'good' | 'easy';
+
+export function dueVocabItems(items: VocabItem[], now = Date.now()): VocabItem[] {
+  return items
+    .filter((item) => (item.nextReviewAt ?? 0) <= now)
+    .sort((a, b) => (a.nextReviewAt ?? 0) - (b.nextReviewAt ?? 0));
+}
+
+export async function gradeVocabItem(id: string, grade: ReviewGrade): Promise<VocabState> {
+  const state = await loadVocab();
+  const item = state.items.find((entry) => entry.id === id);
+  if (!item) return state;
+  const now = Date.now();
+  const previous = item.intervalDays ?? 0;
+  let interval = previous;
+  let mastery = item.mastery ?? 0;
+
+  if (grade === 'again') {
+    interval = 0;
+    mastery = Math.max(0, mastery - 1);
+  } else if (grade === 'hard') {
+    interval = previous ? Math.max(1, previous * 1.2) : 1;
+  } else if (grade === 'good') {
+    interval = previous ? Math.max(2, previous * 2.3) : 1;
+    mastery = Math.min(5, mastery + 1);
+  } else {
+    interval = previous ? Math.max(3, previous * 3.5) : 3;
+    mastery = Math.min(5, mastery + 2);
+  }
+
+  interval = Math.min(180, interval);
+  item.mastery = mastery;
+  item.reviewCount = (item.reviewCount ?? 0) + 1;
+  item.lastReviewedAt = now;
+  item.intervalDays = interval;
+  item.nextReviewAt = grade === 'again' ? now + 10 * 60_000 : now + interval * 86_400_000;
+  item.updatedAt = now;
+  await saveVocab(state);
+  return state;
+}
+
 export function searchVocab(items: VocabItem[], query: string): VocabItem[] {
   const q = query.trim().toLowerCase();
   if (!q) return items;

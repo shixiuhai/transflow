@@ -221,6 +221,12 @@ check(
 );
 const vocabState = await vocabPage.evaluate(() => chrome.runtime.sendMessage({ type: 'vocab-get' }));
 check('vocab state has item', Boolean(vocabState?.ok) && vocabState.data.items.length === 1, JSON.stringify(vocabState?.data?.items?.length));
+const reviewPage = await browser.newPage();
+await reviewPage.goto(`chrome-extension://${extensionId}/review.html`, { waitUntil: 'domcontentloaded' });
+await sleep(400);
+const reviewReady = await reviewPage.evaluate(() => document.body.innerText.includes('复习') && Boolean(document.querySelector('.review-shell')));
+check('review page loads', reviewReady);
+await reviewPage.close();
 await vocabPage.close();
 
 const optionsPage = await browser.newPage();

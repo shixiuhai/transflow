@@ -62,35 +62,69 @@ const STYLE = `
   .trigger.show { opacity: 1; transform: translateY(0); }
   .card {
     position: absolute; width: 340px; max-height: 60vh; overflow: auto;
-    background: rgba(255,255,255,.86); backdrop-filter: blur(16px) saturate(1.2);
-    border: 1px solid rgba(16,24,40,.08); border-radius: 14px;
-    box-shadow: 0 12px 32px rgba(16,24,40,.14); padding: 12px 14px 8px;
-    pointer-events: auto; color: #111318;
-  }
-  @media (prefers-color-scheme: dark) {
-    .card { background: rgba(22,25,30,.86); border-color: rgba(255,255,255,.10); color: #F1F4F8; }
-    .card::before {
-    content: ""; position: absolute; width: 10px; height: 10px;
-    background: var(--tf-bubble-bg, #fff);
-    border: 1px solid var(--tf-bubble-border, rgba(16,24,40,.08));
-    transform: rotate(45deg);
-  }
-  .card[data-placement="right"]::before { left: -5px; top: var(--tf-arrow-top, 50%); border-right: 0; border-top: 0; }
-  .card[data-placement="bottom"]::before { top: -5px; left: var(--tf-arrow-left, 24px); border-right: 0; border-bottom: 0; }
-  .card[data-placement="top"]::before { bottom: -5px; left: var(--tf-arrow-left, 24px); border-left: 0; border-top: 0; }
-  .quote { color: #98A2B3; }
-    .meta { color: #6B7684; }
-    .row { border-color: rgba(255,255,255,.08); }
+    background: var(--tf-card-bg, rgba(255,255,255,.90));
+    color: var(--tf-card-fg, #111318);
+    border: 1px solid var(--tf-card-border, rgba(16,24,40,.08));
+    border-radius: 14px;
+    box-shadow: var(--tf-card-shadow, 0 12px 32px rgba(16,24,40,.14));
+    backdrop-filter: var(--tf-card-blur, none);
+    padding: 12px 14px 8px; pointer-events: auto;
   }
   .card::before {
     content: ""; position: absolute; width: 10px; height: 10px;
-    background: var(--tf-bubble-bg, #fff);
-    border: 1px solid var(--tf-bubble-border, rgba(16,24,40,.08));
+    background: var(--tf-card-bg, #fff);
+    border: 1px solid var(--tf-card-border, rgba(16,24,40,.08));
     transform: rotate(45deg);
   }
   .card[data-placement="right"]::before { left: -5px; top: var(--tf-arrow-top, 50%); border-right: 0; border-top: 0; }
   .card[data-placement="bottom"]::before { top: -5px; left: var(--tf-arrow-left, 24px); border-right: 0; border-bottom: 0; }
   .card[data-placement="top"]::before { bottom: -5px; left: var(--tf-arrow-left, 24px); border-left: 0; border-top: 0; }
+
+  .card[data-style="paper"] {
+    --tf-card-bg: #FBF7EC;
+    --tf-card-fg: #1E2A26;
+    --tf-card-border: #E6DBC6;
+    --tf-card-quote: #7B8A83;
+    --tf-card-shadow: 0 16px 38px rgba(60,45,20,.20);
+    --tf-card-blur: none;
+  }
+  .card[data-style="glass"] {
+    --tf-card-bg: rgba(255,255,255,.62);
+    --tf-card-fg: #111318;
+    --tf-card-border: rgba(255,255,255,.55);
+    --tf-card-quote: #5F6B76;
+    --tf-card-shadow: 0 18px 48px rgba(16,24,40,.22);
+    --tf-card-blur: blur(18px) saturate(1.25);
+  }
+  .card[data-style="contrast"] {
+    --tf-card-bg: #0D1117;
+    --tf-card-fg: #F3F6FA;
+    --tf-card-border: rgba(255,255,255,.14);
+    --tf-card-quote: #A9B4C0;
+    --tf-card-shadow: 0 18px 48px rgba(0,0,0,.45);
+    --tf-card-blur: none;
+  }
+  @media (prefers-color-scheme: dark) {
+    .card[data-style="glass"] {
+      --tf-card-bg: rgba(18,22,28,.62);
+      --tf-card-fg: #F1F4F8;
+      --tf-card-border: rgba(255,255,255,.14);
+      --tf-card-quote: #A9B4C0;
+    }
+  }
+  .card[data-style="paper"] .row, .card[data-style="glass"] .row, .card[data-style="contrast"] .row {
+    border-top-color: var(--tf-card-border);
+  }
+  .card[data-style="paper"] .divider, .card[data-style="glass"] .divider, .card[data-style="contrast"] .divider {
+    background: var(--tf-card-fg); opacity: .10;
+  }
+  .card[data-style="paper"] .quote, .card[data-style="glass"] .quote, .card[data-style="contrast"] .quote {
+    color: var(--tf-card-quote);
+  }
+  .card[data-style="paper"] .meta, .card[data-style="glass"] .meta, .card[data-style="contrast"] .meta {
+    color: var(--tf-card-quote); opacity: .8;
+  }
+
   .quote {
     font-size: 11px; line-height: 1.5; color: #667085; margin-bottom: 8px;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
@@ -102,7 +136,7 @@ const STYLE = `
     border: 0; background: transparent; font: inherit; font-size: 11.5px; color: inherit; opacity: .72;
     padding: 5px 8px; border-radius: 6px; cursor: pointer;
   }
-  .row button:hover { background: rgba(15,118,110,.10); opacity: 1; color: #0F766E; }
+  .row button:hover { background: color-mix(in srgb, currentColor 10%, transparent); opacity: 1; }
   .spacer { flex: 1; }
   .meta { font-size: 10px; opacity: .55; font-variant-numeric: tabular-nums; }
   .skeleton { height: 12px; border-radius: 4px; background: currentColor; opacity: .08; margin: 6px 0; animation: pulse 1.2s ease-in-out infinite; }
@@ -273,13 +307,21 @@ export default defineContentScript({
       target.style.top = `${top}px`;
     };
 
-    const styleCardFromPalette = (target: HTMLElement, palette: Palette) => {
-      const bubbleBg = `color-mix(in srgb, ${palette.bg} 90%, transparent)`;
+    const styleCardFromPalette = (target: HTMLElement, palette: Palette, style: 'auto' | 'paper' | 'glass' | 'contrast') => {
+      target.dataset.style = style;
+      if (style !== 'auto') {
+        // Presets are defined in CSS; the host still needs the arrow to match.
+        target.style.setProperty('--tf-bubble-bg', getComputedStyle(target).getPropertyValue('--tf-card-bg').trim() || '#FBF7EC');
+        return;
+      }
+      const bubbleBg = `color-mix(in srgb, ${palette.bg} 88%, #0F766E 12%)`;
+      target.style.setProperty('--tf-card-bg', bubbleBg);
+      target.style.setProperty('--tf-card-fg', palette.fg);
+      target.style.setProperty('--tf-card-border', `color-mix(in srgb, ${palette.fg} 14%, transparent)`);
+      target.style.setProperty('--tf-card-quote', palette.trans);
+      target.style.setProperty('--tf-card-shadow', '0 14px 36px rgba(16,24,40,.18)');
       target.style.setProperty('--tf-bubble-bg', bubbleBg);
-      target.style.setProperty('--tf-bubble-border', `color-mix(in srgb, ${palette.fg} 12%, transparent)`);
-      target.style.background = bubbleBg;
-      target.style.color = palette.fg;
-      target.style.borderColor = `color-mix(in srgb, ${palette.fg} 12%, transparent)`;
+      target.style.setProperty('--tf-bubble-border', `color-mix(in srgb, ${palette.fg} 14%, transparent)`);
       const quote = target.querySelector('.quote') as HTMLElement | null;
       if (quote) quote.style.color = palette.trans;
       const divider = target.querySelector('.divider') as HTMLElement | null;
@@ -307,7 +349,7 @@ export default defineContentScript({
         <div class="row"><button data-act="vocab" disabled>＋单词本</button><button data-act="speak-source">朗读原文</button><button data-act="speak-target">朗读译文</button><button data-act="copy">复制</button><button data-act="close">关闭</button><span class="spacer"></span><span class="meta">翻译中…</span></div>
       `;
       (card.querySelector('.quote') as HTMLElement).textContent = text;
-      styleCardFromPalette(card, samplePalette(sourceEl));
+      styleCardFromPalette(card, samplePalette(sourceEl), settingsCache?.selection.bubbleStyle ?? 'paper');
       layer.appendChild(card);
       hostEl?.setAttribute('data-tf-bubble', 'open');
       hostEl?.setAttribute('data-tf-render', 'appended');
