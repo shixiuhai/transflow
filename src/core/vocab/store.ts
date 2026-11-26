@@ -241,6 +241,31 @@ export function dueVocabItems(items: VocabItem[], now = Date.now()): VocabItem[]
     .sort((a, b) => (a.nextReviewAt ?? 0) - (b.nextReviewAt ?? 0));
 }
 
+export type ReviewSnapshot = Pick<
+  VocabItem,
+  'mastery' | 'reviewCount' | 'lastReviewedAt' | 'nextReviewAt' | 'intervalDays' | 'updatedAt'
+>;
+
+export function reviewSnapshot(item: VocabItem): ReviewSnapshot {
+  return {
+    mastery: item.mastery,
+    reviewCount: item.reviewCount,
+    lastReviewedAt: item.lastReviewedAt,
+    nextReviewAt: item.nextReviewAt,
+    intervalDays: item.intervalDays,
+    updatedAt: item.updatedAt,
+  };
+}
+
+export async function restoreVocabReview(id: string, snapshot: ReviewSnapshot): Promise<VocabState> {
+  const state = await loadVocab();
+  const item = state.items.find((entry) => entry.id === id);
+  if (!item) return state;
+  Object.assign(item, snapshot);
+  await saveVocab(state);
+  return state;
+}
+
 export async function gradeVocabItem(id: string, grade: ReviewGrade): Promise<VocabState> {
   const state = await loadVocab();
   const item = state.items.find((entry) => entry.id === id);

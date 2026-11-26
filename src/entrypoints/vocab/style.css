@@ -90,3 +90,10 @@ button { cursor: pointer; }
   .tools button { flex: 1 1 auto; }
   .two { grid-template-columns: 1fr; }
 }
+
+.row-actions button:focus-visible, .tools button:focus-visible, .chips button:focus-visible, .top-actions button:focus-visible, .pager button:focus-visible { outline:2px solid #0F766E; outline-offset:2px; }
+.empty { display:grid; gap:12px; justify-items:center; }
+.empty .primary { width:auto; padding:8px 14px; }
+.pager { display:flex; align-items:center; justify-content:center; gap:12px; padding:14px 0 0; font-size:11.5px; color:#6B7C73; }
+.pager button { border:1px solid #DDE7E0; background:#fff; border-radius:7px; padding:6px 10px; font-size:11.5px; }
+.pager button:disabled { opacity:.4; cursor:default; }

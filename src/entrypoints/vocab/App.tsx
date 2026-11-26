@@ -16,6 +16,8 @@ import type { VocabItem, VocabState } from '../../core/vocab/types';
 import { DEFAULT_SYNC_URL } from '../../core/vocab/sync';
 import './style.css';
 
+const PAGE_SIZE = 50;
+
 type Filter = 'all' | 'due' | 'mastered' | 'new';
 type Sort = 'updated' | 'due' | 'alpha';
 
@@ -56,6 +58,8 @@ export default function App() {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [sort, setSort] = useState<Sort>('updated');
+  const [tagFilter, setTagFilter] = useState('');
+  const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editor, setEditor] = useState<Editor | null>(null);
   const [busy, setBusy] = useState(false);
@@ -66,17 +70,24 @@ export default function App() {
 
   const refresh = async () => setState(await loadVocab());
   useEffect(() => { void refresh(); }, []);
+  useEffect(() => { setPage(0); }, [query, filter, sort, tagFilter]);
 
   const notify = (text: string) => {
     setToast(text);
     window.setTimeout(() => setToast(''), 2600);
   };
 
+  const allTags = useMemo(() => {
+    if (!state) return [];
+    return Array.from(new Set(state.items.flatMap((item) => item.tags ?? []))).sort();
+  }, [state]);
+
   const filtered = useMemo(() => {
     if (!state) return [];
     const q = query.trim().toLowerCase();
     const now = Date.now();
     let list = state.items.filter((item) => {
+      if (tagFilter && !(item.tags ?? []).includes(tagFilter)) return false;
       if (q && !`${item.term} ${item.translation} ${item.note ?? ''} ${(item.tags ?? []).join(' ')}`.toLowerCase().includes(q)) return false;
       if (filter === 'due') return (item.nextReviewAt ?? 0) <= now;
       if (filter === 'mastered') return (item.mastery ?? 0) >= 4;
@@ -94,7 +105,10 @@ export default function App() {
   const due = state ? dueVocabItems(state.items).length : 0;
   const mastered = state ? state.items.filter((item) => (item.mastery ?? 0) >= 4).length : 0;
   const newCount = state ? state.items.filter((item) => !item.reviewCount).length : 0;
-  const allVisibleSelected = filtered.length > 0 && filtered.every((item) => selected.has(item.id));
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const visible = filtered.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+  const allVisibleSelected = visible.length > 0 && visible.every((item) => selected.has(item.id));
 
   const toggle = (id: string) => {
     const next = new Set(selected);
@@ -103,7 +117,7 @@ export default function App() {
   };
 
   const toggleAll = () => {
-    setSelected(allVisibleSelected ? new Set() : new Set(filtered.map((item) => item.id)));
+    setSelected(allVisibleSelected ? new Set() : new Set(visible.map((item) => item.id)));
   };
 
   const removeMany = async (ids: string[]) => {
@@ -240,7 +254,11 @@ export default function App() {
             <button key={id} className={filter === id ? 'on' : ''} onClick={() => setFilter(id)}>{label}</button>
           ))}
         </div>
-        <select value={sort} onChange={(e) => setSort(e.target.value as Sort)}>
+        <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)} aria-label="标签筛选">
+          <option value="">全部标签</option>
+          {allTags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
+        </select>
+        <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} aria-label="排序">
           <option value="updated">最近更新</option>
           <option value="due">复习时间</option>
           <option value="alpha">字母顺序</option>
@@ -277,7 +295,7 @@ export default function App() {
       </section>
 
       <section className="rows">
-        {filtered.map((item) => (
+        {visible.map((item) => (
           <article className="row" key={item.id}>
             <input type="checkbox" checked={selected.has(item.id)} onChange={() => toggle(item.id)} />
             <div className="word">
@@ -299,16 +317,29 @@ export default function App() {
                 context: item.context ?? '', note: item.note ?? '', tags: (item.tags ?? []).join(', '),
                 sourceLang: item.sourceLang, targetLang: item.targetLang,
               })}>编辑</button>
+              <button onClick={() => { void navigator.clipboard.writeText(`${item.term}\t${item.translation}`); notify('已复制'); }}>复制</button>
               <button className="danger-link" onClick={() => void removeMany([item.id])}>删除</button>
             </div>
           </article>
         ))}
-        {filtered.length === 0 && <div className="empty">没有符合条件的单词。</div>}
+        {filtered.length === 0 && (
+          <div className="empty">
+            没有符合条件的单词。
+            <button className="primary" onClick={() => setEditor(emptyEditor())}>添加第一个</button>
+          </div>
+        )}
       </section>
+      {pageCount > 1 && (
+        <div className="pager">
+          <button onClick={() => setPage(Math.max(0, safePage - 1))} disabled={safePage === 0}>上一页</button>
+          <span>第 {safePage + 1} / {pageCount} 页 · {filtered.length} 条</span>
+          <button onClick={() => setPage(Math.min(pageCount - 1, safePage + 1))} disabled={safePage >= pageCount - 1}>下一页</button>
+        </div>
+      )}
 
       {editor && (
         <div className="overlay" onClick={() => setEditor(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" role="dialog" aria-modal="true" aria-label={editor.mode === 'add' ? '添加单词' : '编辑单词'} onClick={(e) => e.stopPropagation()}>
             <h2>{editor.mode === 'add' ? '添加单词' : '编辑单词'}</h2>
             <label>原文<textarea value={editor.term} onChange={(e) => setEditor({ ...editor, term: e.target.value })} rows={2} /></label>
             <label>译文<textarea value={editor.translation} onChange={(e) => setEditor({ ...editor, translation: e.target.value })} rows={3} /></label>

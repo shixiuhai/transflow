@@ -17,6 +17,11 @@ button { font: inherit; cursor: pointer; }
   background: linear-gradient(145deg,#14B8A6,#0F766E); color: #fff; font-size: 13px;
 }
 .due { margin-left: auto; font-size: 12px; color: #9FB5AC; }
+.daily { display:flex; align-items:center; gap:10px; margin: 0 0 24px; font-size:11px; color:#9FB5AC; }
+.daily b { color:#EAF2EE; font-variant-numeric:tabular-nums; }
+.daily-bar { flex:1; max-width:220px; height:4px; border-radius:4px; background:rgba(255,255,255,.08); overflow:hidden; }
+.daily-bar i { display:block; height:100%; background:#2DD4BF; }
+.counter { display:flex; justify-content:space-between; }
 .ghost { border: 0; background: transparent; color: #9FB5AC; padding: 7px 9px; border-radius: 8px; font-size: 12px; }
 .ghost:hover { background: rgba(255,255,255,.06); color: #fff; }
 .intro { padding: 96px 4px 40px; max-width: 680px; }
@@ -60,6 +65,9 @@ button { font: inherit; cursor: pointer; }
 .grades .good:hover { background: rgba(45,212,191,.16); border-color: rgba(45,212,191,.4); }
 .grades .easy:hover { background: rgba(96,165,250,.16); border-color: rgba(96,165,250,.4); }
 .reveal-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+.stage-tools { display:flex; align-items:center; gap:10px; margin-top:10px; font-size:10.5px; color:#8FA79D; flex-wrap:wrap; }
+.stage-tools span { margin-left:auto; }
+.stage-tools .ghost:disabled { opacity:.35; cursor:default; }
 kbd { font-family: inherit; font-size: 10px; border: 1px solid rgba(0,0,0,.2); border-radius: 4px; padding: 1px 5px; margin-left: 4px; }
 .loading { padding: 80px; color: #9FB5AC; }
 @media (max-width: 620px) {

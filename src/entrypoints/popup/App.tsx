@@ -317,7 +317,7 @@ export default function App() {
       )}
 
       <div className="tabs">
-        <button className="on">翻译</button>
+        <button className="on" aria-current="page">翻译</button>
         <button onClick={() => void translatePage()}>整页</button>
         <button onClick={() => void chrome.tabs.create({ url: chrome.runtime.getURL('vocab.html') })}>
           词库{vocabCount ? ` ${vocabCount}` : ''}

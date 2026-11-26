@@ -1,0 +1,13 @@
+import puppeteer from 'puppeteer-core';
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const b = await puppeteer.connect({ browserURL: 'http://127.0.0.1:9368', defaultViewport: null });
+const p = (await b.pages()).find((x) => x.url().includes('review.html'));
+await p.keyboard.press('Space');
+await sleep(200);
+await p.keyboard.press('1');
+await sleep(400);
+console.log('after again:', await p.evaluate(() => document.querySelector('.counter')?.textContent));
+await p.keyboard.press('z');
+await sleep(300);
+console.log('after undo:', await p.evaluate(() => document.querySelector('.counter')?.textContent));
+await b.disconnect();

@@ -314,6 +314,7 @@ export default function App() {
           <button
             key={id}
             className={section === id ? 'on' : ''}
+            aria-current={section === id ? 'page' : undefined}
             onClick={() => {
               setSection(id);
               window.scrollTo({ top: 0, behavior: 'smooth' });
