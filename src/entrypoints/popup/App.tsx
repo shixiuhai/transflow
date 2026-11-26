@@ -3,6 +3,7 @@ import { LANGUAGES } from '../../core/lang';
 import type { RuntimeMessage, RuntimeResponse, TranslateSuccess } from '../../core/messages';
 import type { Settings } from '../../core/settings/schema';
 import { dueVocabItems, loadVocab } from '../../core/vocab/store';
+import { TabIcon } from './TabIcon';
 
 const send = <T,>(message: RuntimeMessage) =>
   chrome.runtime.sendMessage(message) as Promise<RuntimeResponse<T>>;
@@ -29,6 +30,7 @@ export default function App() {
     hasSelection: boolean;
   } | null>(null);
   const [tabId, setTabId] = useState<number | null>(null);
+  const [tabReady, setTabReady] = useState(false);
   const [tabUrl, setTabUrl] = useState('');
   const [tabTitle, setTabTitle] = useState('');
   const [vocabSaved, setVocabSaved] = useState(false);
@@ -76,13 +78,15 @@ export default function App() {
         if (status?.ok && status.data) setPageStatus(status.data);
       } catch {
         setDiag(null);
+      } finally {
+        setTabReady(true);
       }
     })();
   }, []);
 
   const currentVersion = chrome.runtime.getManifest().version;
   const isExtensionPage = /^(chrome|edge|about|chrome-extension):/i.test(tabUrl);
-  const diagProblem = !isExtensionPage && (!diag || diag.version !== currentVersion || diag.settings?.trigger === 'button');
+  const diagProblem = tabReady && !isExtensionPage && (!diag || diag.version !== currentVersion || diag.settings?.trigger === 'button');
 
   const canTranslate = useMemo(() => text.trim().length > 0 && !loading && from !== to, [text, loading, from, to]);
 
@@ -174,7 +178,7 @@ export default function App() {
         <div className={`status ${diagProblem ? 'warn' : ''}`} title={diag ? `页面脚本 v${diag.version} · ${diag.settings?.trigger ?? '?'} / ${diag.settings?.keys ?? '?'}` : '页面未注入'}>
           <i className={`dot ${diagProblem ? 'warn' : ''}`} />
           {settings ? providerLabel(settings.provider.active) : '加载中'}
-          <span>· {isExtensionPage ? '扩展页面' : diagProblem ? '需检查' : '已连接'}</span>
+          <span>· {!tabReady ? '检测中' : isExtensionPage ? '扩展页面' : diagProblem ? '需检查' : '已连接'}</span>
         </div>
       </div>
 
@@ -316,17 +320,23 @@ export default function App() {
         </button>
       )}
 
-      <div className="tabs">
-        <button className="on" aria-current="page">翻译</button>
-        <button onClick={() => void translatePage()}>整页</button>
+      <nav className="tabs" aria-label="TransFlow 快捷导航">
+        <button className="on" aria-current="page">
+          <TabIcon name="translate" /><span>翻译</span>
+        </button>
+        <button onClick={() => void translatePage()}>
+          <TabIcon name="page" /><span>整页</span>
+        </button>
         <button onClick={() => void chrome.tabs.create({ url: chrome.runtime.getURL('vocab.html') })}>
-          词库{vocabCount ? ` ${vocabCount}` : ''}
+          <TabIcon name="book" /><span>词库{vocabCount ? ` ${vocabCount}` : ''}</span>
         </button>
         <button onClick={() => void chrome.tabs.create({ url: chrome.runtime.getURL('review.html') })}>
-          复习{dueCount ? ` ${dueCount}` : ''}
+          <TabIcon name="review" /><span>复习{dueCount ? ` ${dueCount}` : ''}</span>
         </button>
-        <button onClick={() => chrome.runtime.openOptionsPage()}>设置</button>
-      </div>
+        <button onClick={() => chrome.runtime.openOptionsPage()}>
+          <TabIcon name="settings" /><span>设置</span>
+        </button>
+      </nav>
     </div>
   );
 }
