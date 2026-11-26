@@ -9,7 +9,9 @@ body { width: 360px; }
 .brand b { font-size: 13.5px; display: block; line-height: 1.1; }
 .brand small { font-size: 9px; letter-spacing: .08em; color: var(--tf-faint); }
 .status { display: flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--tf-muted); }
-.dot { width: 6px; height: 6px; border-radius: 50%; background: #12b76a; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: #12b76a; flex: none; }
+.dot.warn { background: #F59E0B; }
+.status.warn { color: var(--tf-warn); }
 .langrow { display: flex; align-items: center; gap: 4px; padding-bottom: 10px; border-bottom: 1px solid var(--tf-line); margin-bottom: 12px; }
 .langrow select { border: 0; background: transparent; font-size: 12.5px; padding: 4px 2px; max-width: 132px; }
 .swap { border: 0; background: none; color: var(--tf-faint); margin: 0 auto; padding: 4px; border-radius: 6px; display: grid; place-items: center; }
@@ -60,3 +62,15 @@ body { width: 360px; }
   background: var(--tf-accent-soft); color: var(--tf-accent); font-size: 12.5px; font-weight: 600; cursor: pointer;
 }
 .restore-page:hover { background: color-mix(in srgb, var(--tf-accent-soft) 70%, var(--tf-bg)); }
+
+.clear {
+  position: absolute; right: -2px; top: -2px; width: 22px; height: 22px; border: 0; border-radius: 50%;
+  background: var(--tf-bg-soft); color: var(--tf-muted); font-size: 14px; line-height: 22px; text-align: center; cursor: pointer;
+}
+.clear:hover { color: var(--tf-danger); background: color-mix(in srgb, var(--tf-danger) 10%, transparent); }
+.tabs button { font-size: 10px; gap: 2px; }
+
+.empty-result {
+  font-size: 12px; color: var(--tf-faint); padding: 10px 0 16px; border-top: 1px solid var(--tf-line);
+  margin-top: 2px;
+}

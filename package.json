@@ -1,7 +1,7 @@
 {
   "name": "transflow",
   "private": true,
-  "version": "1.5.0",
+  "version": "1.6.0",
   "type": "module",
   "description": "Fast, open-source bilingual translation extension with a fusion reading layer",
   "license": "MIT",

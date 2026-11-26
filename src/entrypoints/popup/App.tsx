@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { LANGUAGES } from '../../core/lang';
 import type { RuntimeMessage, RuntimeResponse, TranslateSuccess } from '../../core/messages';
 import type { Settings } from '../../core/settings/schema';
+import { dueVocabItems, loadVocab } from '../../core/vocab/store';
 
 const send = <T,>(message: RuntimeMessage) =>
   chrome.runtime.sendMessage(message) as Promise<RuntimeResponse<T>>;
@@ -32,6 +33,8 @@ export default function App() {
   const [tabTitle, setTabTitle] = useState('');
   const [vocabSaved, setVocabSaved] = useState(false);
   const [pageStatus, setPageStatus] = useState<{ translated: boolean; active: boolean; done: number; total: number } | null>(null);
+  const [vocabCount, setVocabCount] = useState(0);
+  const [dueCount, setDueCount] = useState(0);
 
   useEffect(() => {
     void (async () => {
@@ -41,6 +44,10 @@ export default function App() {
         setFrom(response.data.language.source);
         setTo(response.data.language.target);
       }
+      void loadVocab().then((vocab) => {
+        setVocabCount(vocab.items.length);
+        setDueCount(dueVocabItems(vocab.items).length);
+      });
       const selection = await chrome.tabs
         .query({ active: true, currentWindow: true })
         .then(([tab]) => (tab?.id ? chrome.tabs.sendMessage(tab.id, { type: 'get-selection' }).catch(() => null) : null))
@@ -72,6 +79,10 @@ export default function App() {
       }
     })();
   }, []);
+
+  const currentVersion = chrome.runtime.getManifest().version;
+  const isExtensionPage = /^(chrome|edge|about|chrome-extension):/i.test(tabUrl);
+  const diagProblem = !isExtensionPage && (!diag || diag.version !== currentVersion || diag.settings?.trigger === 'button');
 
   const canTranslate = useMemo(() => text.trim().length > 0 && !loading && from !== to, [text, loading, from, to]);
 
@@ -160,13 +171,14 @@ export default function App() {
             <small>TRANSFLOW</small>
           </div>
         </div>
-        <div className="status">
-          <i className="dot" />
+        <div className={`status ${diagProblem ? 'warn' : ''}`} title={diag ? `页面脚本 v${diag.version} · ${diag.settings?.trigger ?? '?'} / ${diag.settings?.keys ?? '?'}` : '页面未注入'}>
+          <i className={`dot ${diagProblem ? 'warn' : ''}`} />
           {settings ? providerLabel(settings.provider.active) : '加载中'}
+          <span>· {isExtensionPage ? '扩展页面' : diagProblem ? '需检查' : '已连接'}</span>
         </div>
       </div>
 
-      <div className={`diag ${!diag ? 'bad' : diag.settings?.trigger === 'button' ? 'warn' : ''}`}>
+      {diagProblem && !isExtensionPage && <div className={`diag ${!diag ? 'bad' : diag.settings?.trigger === 'button' ? 'warn' : ''}`}>
         {diag ? (
           <>
             <span>
@@ -190,7 +202,7 @@ export default function App() {
         ) : (
           <span>当前页面未注入脚本（chrome:// 页面或扩展被禁用）</span>
         )}
-      </div>
+      </div>}
 
       <div className="langrow">
         <select value={from} onChange={(e) => setFrom(e.target.value)} aria-label="源语言">
@@ -223,6 +235,16 @@ export default function App() {
           autoFocus
         />
         <div className="count">{text.length} / 5000</div>
+        {text && (
+          <button
+            className="clear"
+            title="清空"
+            aria-label="清空输入"
+            onClick={() => { setText(''); setResult(''); setError(''); }}
+          >
+            ×
+          </button>
+        )}
       </div>
 
       <button className="primary" onClick={() => void translate()} disabled={!canTranslate}>
@@ -231,12 +253,13 @@ export default function App() {
 
       {error && <div className="error">{error}</div>}
 
-      <div className="result">
+      {!result && <div className="empty-result">译文会显示在这里</div>}
+      {result && <div className="result">
         <div className="label">
           <span>译文</span>
           <span>{meta}</span>
         </div>
-        <div className="text">{result || '译文会显示在这里'}</div>
+        <div className="text">{result}</div>
         <div className="acts">
           <button onClick={() => void addToVocab()} disabled={!result}>
             {vocabSaved ? '已加入' : '＋单词本'}
@@ -269,9 +292,8 @@ export default function App() {
             复制
           </button>
           <span className="grow" />
-          <button onClick={() => chrome.runtime.openOptionsPage()}>设置</button>
         </div>
-      </div>
+      </div>}
 
       {settings?.provider.active === 'mock' && (
         <div className="hint">
@@ -295,8 +317,14 @@ export default function App() {
       )}
 
       <div className="tabs">
-        <button className="on">划词</button>
+        <button className="on">翻译</button>
         <button onClick={() => void translatePage()}>整页</button>
+        <button onClick={() => void chrome.tabs.create({ url: chrome.runtime.getURL('vocab.html') })}>
+          词库{vocabCount ? ` ${vocabCount}` : ''}
+        </button>
+        <button onClick={() => void chrome.tabs.create({ url: chrome.runtime.getURL('review.html') })}>
+          复习{dueCount ? ` ${dueCount}` : ''}
+        </button>
         <button onClick={() => chrome.runtime.openOptionsPage()}>设置</button>
       </div>
     </div>

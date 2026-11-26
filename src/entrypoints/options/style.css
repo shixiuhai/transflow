@@ -8,7 +8,7 @@ body { background: var(--tf-bg-soft); min-height: 100vh; }
 .card { background: var(--tf-bg); border: 1px solid var(--tf-line); border-radius: 14px; padding: 22px; margin-bottom: 16px; }
 .card h2 { font-size: 14px; margin: 0 0 4px; }
 .card .desc { font-size: 12px; color: var(--tf-muted); margin: 0 0 18px; }
-.providers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.providers { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 12px; }
 .provider { border: 1px solid var(--tf-line); border-radius: 12px; padding: 14px; cursor: pointer; background: var(--tf-bg); }
 .provider.sel { border-color: var(--tf-accent); box-shadow: 0 0 0 3px var(--tf-accent-soft); }
 .provider .name { font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
@@ -122,3 +122,21 @@ body { background: var(--tf-bg-soft); min-height: 100vh; }
 @media (max-width: 420px) {
   .quickbar { flex-wrap: wrap; }
 }
+
+.sectionnav { display: flex; gap: 2px; overflow-x: auto; margin: 4px 0 14px; border-bottom: 1px solid var(--tf-line); }
+.sectionnav button {
+  border: 0; background: transparent; color: var(--tf-muted); font: inherit; font-size: 12px;
+  padding: 9px 11px 10px; border-bottom: 2px solid transparent; white-space: nowrap;
+}
+.sectionnav button:hover { color: var(--tf-ink); }
+.sectionnav button.on { color: var(--tf-accent); border-bottom-color: var(--tf-accent); font-weight: 650; }
+.wrap[data-section="provider"] .card[data-section]:not([data-section="provider"]),
+.wrap[data-section="reading"] .card[data-section]:not([data-section="reading"]),
+.wrap[data-section="vocab"] .card[data-section]:not([data-section="vocab"]),
+.wrap[data-section="usage"] .card[data-section]:not([data-section="usage"]),
+.wrap[data-section="about"] .card[data-section]:not([data-section="about"]) { display: none; }
+
+.vocab-summary { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin: 4px 0 14px; font-size:12px; color:var(--tf-muted); }
+.vocab-summary b { color:var(--tf-ink); font-size:15px; }
+.vocab-summary label { margin-left:auto; display:flex; align-items:center; gap:8px; }
+.vocab-summary select { height:34px; border:1px solid var(--tf-line); border-radius:8px; background:var(--tf-bg); padding:0 8px; }

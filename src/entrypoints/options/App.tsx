@@ -7,19 +7,11 @@ import { formatGlossary, parseGlossary } from '../../core/glossary';
 import { estimateCost, getUsage } from '../../core/usage';
 import { formatShortcut, normalizeShortcut } from '../../core/shortcut';
 import {
-  clearVocabLocal,
-  deleteVocabItem,
   dueVocabItems,
-  exportVocabCsv,
-  exportVocabJson,
-  isVocabUuid,
   loadVocab,
   saveVocab,
-  searchVocab,
-  setVocabUuid,
 } from '../../core/vocab/store';
 import type { VocabState } from '../../core/vocab/types';
-import { DEFAULT_SYNC_URL } from '../../core/vocab/sync';
 import type { PageMode } from '../../core/settings/schema';
 
 const send = <T,>(message: RuntimeMessage) =>
@@ -101,6 +93,8 @@ function ShortcutRecorder({ value, onChange }: { value: string; onChange: (value
   );
 }
 
+type Section = 'provider' | 'reading' | 'vocab' | 'usage' | 'about';
+
 export default function App() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [active, setActive] = useState('volc');
@@ -109,11 +103,10 @@ export default function App() {
   const [selectionTrigger, setSelectionTrigger] = useState<'button' | 'shortcut' | 'both'>('both');
   const [selectionKeys, setSelectionKeys] = useState('t');
   const [bubbleStyle, setBubbleStyle] = useState<'auto' | 'paper' | 'glass' | 'contrast'>('paper');
+  const [section, setSection] = useState<Section>('provider');
   const [others, setOthers] = useState<{ id: string; name: string; version: string }[]>([]);
   const [manageState, setManageState] = useState<'unknown' | 'ready' | 'denied'>('unknown');
   const [vocab, setVocab] = useState<VocabState | null>(null);
-  const [vocabQuery, setVocabQuery] = useState('');
-  const [restoreUuid, setRestoreUuid] = useState('');
   const [vocabBusy, setVocabBusy] = useState(false);
   const [glossaryText, setGlossaryText] = useState('');
   const [usage, setUsage] = useState<{ total: number; byProvider: Record<string, number> } | null>(null);
@@ -232,62 +225,12 @@ export default function App() {
     }
   };
 
-  const restoreVocab = async () => {
-    if (!isVocabUuid(restoreUuid)) {
-      setStatus({ kind: 'err', text: 'UUID 格式不正确' });
-      return;
-    }
-    setVocabBusy(true);
-    try {
-      await setVocabUuid(restoreUuid);
-      const response = await send<{ items: number }>({ type: 'vocab-sync-now' });
-      if (!response.ok) throw new Error(response.error.message);
-      setVocab(await loadVocab());
-      setStatus({ kind: 'ok', text: `已恢复并合并 · ${response.data.items} 条` });
-    } catch (error) {
-      setStatus({ kind: 'err', text: `恢复失败：${(error as Error).message}` });
-    } finally {
-      setVocabBusy(false);
-    }
-  };
-
-  const deleteCloudVocab = async () => {
-    if (!vocab || !confirm('删除云端单词本？此操作不可恢复，本地词条仍保留。')) return;
-    setVocabBusy(true);
-    try {
-      const response = await fetch(`${(settings?.vocab.syncUrl || DEFAULT_SYNC_URL).replace(/\/$/, '')}/vocab`, {
-        method: 'DELETE',
-        headers: { 'X-Transflow-Id': vocab.uuid },
-      });
-      const json = (await response.json().catch(() => null)) as { code?: number; msg?: string } | null;
-      if (!response.ok || json?.code !== 200) throw new Error(json?.msg || `删除失败（${response.status}）`);
-      const next = await loadVocab();
-      next.sync.lastSyncAt = 0;
-      await saveVocab(next);
-      setVocab(next);
-      setStatus({ kind: 'ok', text: '云端单词本已删除' });
-    } catch (error) {
-      setStatus({ kind: 'err', text: `删除云端失败：${(error as Error).message}` });
-    } finally {
-      setVocabBusy(false);
-    }
-  };
-
   const updateVocabSchedule = async (auto: boolean, intervalMinutes: number) => {
     const next = await loadVocab();
     next.sync.auto = auto;
     next.sync.intervalMinutes = intervalMinutes;
     await saveVocab(next);
     setVocab(next);
-  };
-
-  const downloadFile = (name: string, content: string, type: string) => {
-    const url = URL.createObjectURL(new Blob([content], { type }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = name;
-    link.click();
-    URL.revokeObjectURL(url);
   };
 
   const save = async () => {
@@ -343,7 +286,7 @@ export default function App() {
   };
 
   return (
-    <div className={`wrap ${wizardStep !== null ? 'wizard-open' : ''}`}>
+    <div className={`wrap ${wizardStep !== null ? 'wizard-open' : ''}`} data-section={section}>
       <div className="quickbar">
         <button
           className="quick primary"
@@ -359,6 +302,27 @@ export default function App() {
         </button>
         <button className="quick" onClick={() => void syncVocabNow()} disabled={vocabBusy}>同步</button>
       </div>
+
+      <nav className="sectionnav">
+        {([
+          ['provider', '翻译渠道'],
+          ['reading', '阅读与划词'],
+          ['vocab', '单词本'],
+          ['usage', '用量'],
+          ['about', '关于'],
+        ] as [Section, string][]).map(([id, label]) => (
+          <button
+            key={id}
+            className={section === id ? 'on' : ''}
+            onClick={() => {
+              setSection(id);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
 
       <div className="head">
         <div>
@@ -476,7 +440,7 @@ export default function App() {
         </div>
       )}
 
-      <div className="card">
+      <div className="card" data-section="provider">
         <h2>翻译渠道</h2>
         <p className="desc">默认使用火山引擎；没有密钥时可先用本地模拟渠道体验。</p>
         <div className="providers">
@@ -532,7 +496,7 @@ export default function App() {
         </div>
       </div>
 
-      <div className="card">
+      <div className="card" data-section="reading">
         <h2>阅读偏好</h2>
         <p className="desc">译文样式立即作用于已翻译页面；目标语言用于划词与整页翻译。</p>
         <div className="grid2">
@@ -561,7 +525,7 @@ export default function App() {
       </div>
 
 
-      <div className="card">
+      <div className="card" data-section="reading">
         <h2>划词与快捷键</h2>
         <p className="desc">选中文本后按你设置的键，译文会直接出现在选区旁边；也可以保留「译」浮标。</p>
         <div className="grid2">
@@ -604,7 +568,7 @@ export default function App() {
         </div>
       </div>
 
-      <div className="card">
+      <div className="card" data-section="reading">
         <h2>术语表</h2>
         <p className="desc">每行一条「原文=译文」，大小写不敏感，长词优先。翻译前会替换为占位符，译后还原。</p>
         <textarea
@@ -620,7 +584,7 @@ export default function App() {
         </div>
       </div>
 
-      <div className="card">
+      <div className="card" data-section="usage">
         <h2>本月用量</h2>
         <p className="desc">只在本机统计，不上传。费用为按公开单价的粗略估算。</p>
         {usage ? (
@@ -641,7 +605,7 @@ export default function App() {
       </div>
 
 
-      <div className="card">
+      <div className="card" data-section="usage">
         <h2>版本检查</h2>
         <p className="desc">Chrome 不会自动合并不同 ID 的旧版本。若同时看到 1.1.x 和 1.2.x，可在这里移除旧版。</p>
         {manageState === 'ready' ? (
@@ -666,7 +630,7 @@ export default function App() {
       </div>
 
 
-      <div className="card">
+      <div className="card" data-section="vocab">
         <h2>单词本</h2>
         <p className="desc">划词气泡或翻译弹窗里的「＋单词本」会保存到这里；UUID 是跨设备恢复的唯一凭证。</p>
         <p className="desc" style={{ color: 'var(--tf-warn)' }}>
@@ -688,21 +652,9 @@ export default function App() {
           </button>
         </div>
 
-        <div className="grid2">
-          <div className="field" style={{ marginTop: 0 }}>
-            <label htmlFor="restoreUuid">用 UUID 恢复</label>
-            <div className="vocab-restore">
-              <input
-                id="restoreUuid"
-                value={restoreUuid}
-                onChange={(e) => setRestoreUuid(e.target.value)}
-                placeholder="xxxxxxxx-xxxx-4xxx-xxxx-xxxxxxxxxxxx"
-              />
-              <button className="btn" onClick={() => void restoreVocab()} disabled={vocabBusy}>恢复</button>
-            </div>
-          </div>
-          <div className="field" style={{ marginTop: 0 }}>
-            <label htmlFor="vocabSchedule">自动同步</label>
+        <div className="vocab-summary">
+          <span><b>{vocab?.items.length ?? 0}</b> 条 · <b>{vocab ? dueVocabItems(vocab.items).length : 0}</b> 待复习</span>
+          <label htmlFor="vocabSchedule">自动同步
             <select
               id="vocabSchedule"
               value={vocab?.sync.auto ? String(vocab.sync.intervalMinutes) : 'manual'}
@@ -718,7 +670,7 @@ export default function App() {
               <option value="1440">每 24 小时</option>
               <option value="manual">仅手动</option>
             </select>
-          </div>
+          </label>
         </div>
 
         <div className="vocab-actions">
@@ -736,60 +688,15 @@ export default function App() {
             管理单词本
           </button>
           <button className="btn" onClick={() => void syncVocabNow()} disabled={vocabBusy}>立即同步</button>
-          <span className="hint">
-            {vocab?.sync.lastSyncAt
-              ? `上次同步：${new Date(vocab.sync.lastSyncAt).toLocaleString()}`
-              : '尚未同步'}
-            {vocab?.sync.lastError ? ` · ${vocab.sync.lastError}` : ''}
-          </span>
-          <button className="btn" onClick={() => vocab && downloadFile(`transflow-vocab-${Date.now()}.json`, exportVocabJson(vocab), 'application/json')}>导出 JSON</button>
-          <button className="btn" onClick={() => vocab && downloadFile(`transflow-vocab-${Date.now()}.csv`, exportVocabCsv(vocab.items), 'text/csv')}>导出 CSV</button>
         </div>
-
-        <div className="vocab-search">
-          <input
-            value={vocabQuery}
-            onChange={(e) => setVocabQuery(e.target.value)}
-            placeholder="搜索原文或译文…"
-          />
-          <span>{vocab?.items.length ?? 0} 条</span>
-          <button
-            className="btn"
-            onClick={async () => {
-              if (!confirm('清空本地单词本？云端数据不会删除。')) return;
-              await clearVocabLocal();
-              setVocab(await loadVocab());
-            }}
-          >
-            清空本地
-          </button>
-          <button className="btn" onClick={() => void deleteCloudVocab()} disabled={vocabBusy}>删除云端</button>
-        </div>
-
-        <div className="vocab-list">
-          {vocab && searchVocab(vocab.items, vocabQuery).slice(0, 100).map((item) => (
-            <div className="vocab-item" key={item.id}>
-              <div>
-                <b>{item.term}</b>
-                <span>{item.translation}</span>
-                <small>{item.sourceLang} → {item.targetLang} · {new Date(item.updatedAt).toLocaleDateString()}</small>
-              </div>
-              <button
-                className="btn"
-                onClick={async () => {
-                  await deleteVocabItem(item.id);
-                  setVocab(await loadVocab());
-                }}
-              >
-                删除
-              </button>
-            </div>
-          ))}
-          {vocab && vocab.items.length === 0 && <div className="hint">还没有单词。去划词翻译里点「＋单词本」。</div>}
+        <div className="hint">
+          {vocab?.sync.lastSyncAt ? `上次同步：${new Date(vocab.sync.lastSyncAt).toLocaleString()}` : '尚未同步'}
+          {vocab?.sync.lastError ? ` · ${vocab.sync.lastError}` : ''}
+          {' · '}恢复 UUID、导入导出、批量删除、删除云端在「管理单词本」里。
         </div>
       </div>
 
-      <div className="card">
+      <div className="card" data-section="about">
         <h2>关于</h2>
         <p className="desc">
           TransFlow v{chrome.runtime.getManifest().version} · MIT · github.com/shixiuhai/transflow

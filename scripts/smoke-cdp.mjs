@@ -240,6 +240,8 @@ await optionsPage.goto(`chrome-extension://${extensionId}/options.html`, { waitU
 await sleep(700);
 const hasWizard = await optionsPage.evaluate(() => Boolean(document.querySelector('.wizard')));
 check('first-run wizard opens', hasWizard);
+const navCount = await optionsPage.evaluate(() => document.querySelectorAll('.sectionnav button').length);
+check('settings section nav renders', navCount === 5, String(navCount));
 await optionsPage.close();
 
 // --- 7. segment cap on a long page ---
