@@ -54,9 +54,15 @@ const STYLE = `
   * { box-sizing: border-box; }
   .layer { position: fixed; inset: 0; pointer-events: none; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif; }
   .trigger {
-    position: absolute; width: 22px; height: 22px; border-radius: 50%;
-    background: #0F766E; color: #fff; font-size: 11px; line-height: 22px; text-align: center;
-    cursor: pointer; pointer-events: auto; box-shadow: 0 2px 8px rgba(0,0,0,.18);
+    position: absolute; width: 26px; height: 26px; border-radius: 50%;
+    /* Clear UA button styles; grid places the CJK line box in the exact center. */
+    margin: 0; padding: 0; border: 0; appearance: none; -webkit-appearance: none;
+    display: grid; place-items: center;
+    background: #0F766E; color: #fff;
+    font: 700 13px/1 -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    text-align: center; line-height: 1; letter-spacing: 0;
+    cursor: pointer; pointer-events: auto;
+    box-shadow: 0 2px 10px rgba(0,0,0,.22), 0 0 0 2px rgba(255,255,255,.92);
     user-select: none; opacity: 0; transform: translateY(2px); transition: opacity .12s ease, transform .12s ease;
   }
   .trigger.show { opacity: 1; transform: translateY(0); }
@@ -448,9 +454,11 @@ export default defineContentScript({
       }
       if (!trigger) {
         trigger = document.createElement('button');
+        trigger.type = 'button';
         trigger.className = 'trigger';
         trigger.textContent = '译';
         trigger.title = '翻译选中文本';
+        trigger.setAttribute('aria-label', '翻译选中文本');
         trigger.addEventListener('mousedown', (event) => event.preventDefault());
         trigger.addEventListener('click', () => {
           const current = readSelection();
@@ -458,8 +466,8 @@ export default defineContentScript({
         });
         layer.appendChild(trigger);
       }
-      trigger.style.left = `${Math.min(info.rect.right + 6, window.innerWidth - 30)}px`;
-      trigger.style.top = `${Math.min(info.rect.bottom + 6, window.innerHeight - 30)}px`;
+      trigger.style.left = `${Math.min(info.rect.right + 8, window.innerWidth - 36)}px`;
+      trigger.style.top = `${Math.min(info.rect.bottom + 8, window.innerHeight - 36)}px`;
       requestAnimationFrame(() => trigger?.classList.add('show'));
     };
 

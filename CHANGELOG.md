@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.11.0
+
+- 修复划词「译」浮标字形偏小/居中不佳：
+  - 22px/12px → 26px/13px；清除 UA button 样式，改用 grid 居中。
+  - 字体优先 PingFang SC / 雅黑 / Noto Sans SC，避免 CJK fallback 字形偏斜。
+  - 增加 2px 白色外环与阴影，在彩色/深色页面上边界更清楚。
+  - 浮标增加 `type=button`、`aria-label`。
+
 ## 1.10.0
 
 - 用量页新增 OpenAI / DeepSeek 官方数据：
