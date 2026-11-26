@@ -344,6 +344,22 @@ export default function App() {
 
   return (
     <div className={`wrap ${wizardStep !== null ? 'wizard-open' : ''}`}>
+      <div className="quickbar">
+        <button
+          className="quick primary"
+          onClick={() => void chrome.tabs.create({ url: chrome.runtime.getURL('review.html') })}
+        >
+          复习{vocab && dueVocabItems(vocab.items).length ? ` · ${dueVocabItems(vocab.items).length}` : ''}
+        </button>
+        <button
+          className="quick"
+          onClick={() => void chrome.tabs.create({ url: chrome.runtime.getURL('vocab.html') })}
+        >
+          单词本管理{vocab ? ` · ${vocab.items.length}` : ''}
+        </button>
+        <button className="quick" onClick={() => void syncVocabNow()} disabled={vocabBusy}>同步</button>
+      </div>
+
       <div className="head">
         <div>
           <h1>译流设置</h1>
@@ -712,6 +728,12 @@ export default function App() {
             disabled={!vocab?.items.length}
           >
             开始复习{(vocab ? dueVocabItems(vocab.items).length : 0) > 0 ? ` · ${dueVocabItems(vocab!.items).length}` : ''}
+          </button>
+          <button
+            className="btn"
+            onClick={() => void chrome.tabs.create({ url: chrome.runtime.getURL('vocab.html') })}
+          >
+            管理单词本
           </button>
           <button className="btn" onClick={() => void syncVocabNow()} disabled={vocabBusy}>立即同步</button>
           <span className="hint">

@@ -78,6 +78,8 @@ export async function addVocabItem(draft: VocabDraft): Promise<{ state: VocabSta
     sourceLang: draft.sourceLang,
     targetLang: draft.targetLang,
     context: draft.context,
+    note: draft.note,
+    tags: draft.tags,
     url: draft.url,
     title: draft.title,
     createdAt: now,
@@ -94,6 +96,123 @@ export async function deleteVocabItem(id: string): Promise<VocabState> {
   state.deleted[id] = Date.now();
   await saveVocab(state);
   return state;
+}
+
+export async function updateVocabItem(
+  id: string,
+  patch: Partial<Pick<VocabItem, 'term' | 'translation' | 'context' | 'note' | 'tags'>>,
+): Promise<VocabState> {
+  const state = await loadVocab();
+  const item = state.items.find((entry) => entry.id === id);
+  if (!item) return state;
+  if (patch.term !== undefined) item.term = patch.term.replace(/\s+/g, ' ').trim();
+  if (patch.translation !== undefined) item.translation = patch.translation.trim();
+  if (patch.context !== undefined) item.context = patch.context.trim();
+  if (patch.note !== undefined) item.note = patch.note.trim();
+  if (patch.tags !== undefined) item.tags = patch.tags;
+  item.updatedAt = Date.now();
+  await saveVocab(state);
+  return state;
+}
+
+export async function deleteVocabItems(ids: string[]): Promise<VocabState> {
+  const state = await loadVocab();
+  const targets = new Set(ids);
+  const now = Date.now();
+  for (const item of state.items) {
+    if (targets.has(item.id)) state.deleted[item.id] = now;
+  }
+  state.items = state.items.filter((item) => !targets.has(item.id));
+  await saveVocab(state);
+  return state;
+}
+
+export async function importVocabJson(raw: string): Promise<{
+  state: VocabState;
+  imported: number;
+  updated: number;
+  skipped: number;
+}> {
+  const parsed = JSON.parse(raw) as unknown;
+  const list = Array.isArray(parsed)
+    ? parsed
+    : parsed && typeof parsed === 'object' && Array.isArray((parsed as { items?: unknown }).items)
+      ? (parsed as { items: unknown[] }).items
+      : null;
+  if (!list) throw new Error('JSON 中没有 items 数组');
+
+  const state = await loadVocab();
+  let imported = 0;
+  let updated = 0;
+  let skipped = 0;
+  const now = Date.now();
+
+  for (const rawItem of list) {
+    if (!rawItem || typeof rawItem !== 'object') {
+      skipped += 1;
+      continue;
+    }
+    const candidate = rawItem as Partial<VocabItem>;
+    const term = typeof candidate.term === 'string' ? candidate.term.replace(/\s+/g, ' ').trim() : '';
+    const translation = typeof candidate.translation === 'string' ? candidate.translation.trim() : '';
+    if (!term || !translation) {
+      skipped += 1;
+      continue;
+    }
+    const sourceLang = typeof candidate.sourceLang === 'string' ? candidate.sourceLang : 'en';
+    const targetLang = typeof candidate.targetLang === 'string' ? candidate.targetLang : 'zh';
+    const id = typeof candidate.id === 'string' && isVocabUuid(candidate.id) ? candidate.id : crypto.randomUUID();
+    const existing = state.items.find((item) => item.id === id)
+      ?? state.items.find(
+        (item) => `${normalizeTerm(item.term)}|${item.sourceLang}|${item.targetLang}`
+          === `${normalizeTerm(term)}|${sourceLang}|${targetLang}`,
+      );
+
+    if (existing) {
+      if ((candidate.updatedAt ?? now) >= existing.updatedAt) {
+        existing.term = term;
+        existing.translation = translation;
+        existing.context = candidate.context ?? existing.context;
+        existing.note = candidate.note ?? existing.note;
+        existing.url = candidate.url ?? existing.url;
+        existing.title = candidate.title ?? existing.title;
+        existing.tags = Array.isArray(candidate.tags) ? candidate.tags.filter((tag) => typeof tag === 'string') : existing.tags;
+        existing.updatedAt = candidate.updatedAt ?? now;
+        updated += 1;
+      } else {
+        skipped += 1;
+      }
+      continue;
+    }
+
+    if (state.items.length >= MAX_ITEMS) {
+      skipped += 1;
+      continue;
+    }
+    state.items.push({
+      id,
+      term,
+      translation,
+      sourceLang,
+      targetLang,
+      context: typeof candidate.context === 'string' ? candidate.context : undefined,
+      note: typeof candidate.note === 'string' ? candidate.note : undefined,
+      url: typeof candidate.url === 'string' ? candidate.url : undefined,
+      title: typeof candidate.title === 'string' ? candidate.title : undefined,
+      tags: Array.isArray(candidate.tags) ? candidate.tags.filter((tag) => typeof tag === 'string') : undefined,
+      createdAt: candidate.createdAt ?? now,
+      updatedAt: candidate.updatedAt ?? now,
+      mastery: typeof candidate.mastery === 'number' ? candidate.mastery : undefined,
+      reviewCount: typeof candidate.reviewCount === 'number' ? candidate.reviewCount : undefined,
+      lastReviewedAt: typeof candidate.lastReviewedAt === 'number' ? candidate.lastReviewedAt : undefined,
+      nextReviewAt: typeof candidate.nextReviewAt === 'number' ? candidate.nextReviewAt : undefined,
+      intervalDays: typeof candidate.intervalDays === 'number' ? candidate.intervalDays : undefined,
+    });
+    imported += 1;
+  }
+
+  await saveVocab(state);
+  return { state, imported, updated, skipped };
 }
 
 export async function clearVocabLocal(): Promise<VocabState> {

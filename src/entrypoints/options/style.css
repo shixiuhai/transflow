@@ -104,3 +104,21 @@ body { background: var(--tf-bg-soft); min-height: 100vh; }
 .vocab-restore { display: flex; gap: 8px; }
 .vocab-restore input { flex: 1 1 auto; min-width: 0; }
 .vocab-restore .btn { flex: 0 0 auto; white-space: nowrap; }
+
+.quickbar {
+  position: sticky; top: 0; z-index: 30; display: flex; gap: 6px; align-items: center;
+  margin: -6px 0 8px; padding: 8px 0;
+  background: linear-gradient(var(--tf-bg) 72%, color-mix(in srgb, var(--tf-bg) 0%, transparent));
+  backdrop-filter: blur(10px);
+}
+.quickbar .quick {
+  border: 1px solid var(--tf-line); background: var(--tf-bg); color: var(--tf-fg);
+  border-radius: 8px; padding: 7px 11px; font-size: 11.5px; white-space: nowrap;
+}
+.quickbar .quick:hover { background: var(--tf-bg-soft); }
+.quickbar .quick.primary { background: #0F766E; border-color: #0F766E; color: #fff; }
+.quickbar .quick.primary:hover { background: #0B5F59; }
+.quickbar .quick:disabled { opacity: .5; cursor: default; }
+@media (max-width: 420px) {
+  .quickbar { flex-wrap: wrap; }
+}

@@ -227,6 +227,12 @@ await sleep(400);
 const reviewReady = await reviewPage.evaluate(() => document.body.innerText.includes('复习') && Boolean(document.querySelector('.review-shell')));
 check('review page loads', reviewReady);
 await reviewPage.close();
+const libraryPage = await browser.newPage();
+await libraryPage.goto(`chrome-extension://${extensionId}/vocab.html`, { waitUntil: 'domcontentloaded' });
+await sleep(400);
+const libraryReady = await libraryPage.evaluate(() => Boolean(document.querySelector('.library')) && document.body.innerText.includes('单词本'));
+check('vocab management page loads', libraryReady);
+await libraryPage.close();
 await vocabPage.close();
 
 const optionsPage = await browser.newPage();
