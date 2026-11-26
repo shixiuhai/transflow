@@ -1,32 +1,43 @@
 :root {
-  --tf-bg: #ffffff;
-  --tf-bg-soft: #f6f7f9;
-  --tf-ink: #101418;
-  --tf-muted: #5b6472;
-  --tf-faint: #8a93a2;
-  --tf-line: #e5e7eb;
-  --tf-accent: #0f766e;
-  --tf-accent-strong: #0b5f59;
-  --tf-accent-soft: #e6f3f0;
-  --tf-danger: #b42318;
-  --tf-warn: #b54708;
+  /* One warm-paper palette for popup, settings, library and review. */
+  --tf-bg: #FFFDF8;
+  --tf-bg-soft: #F5F2EA;
+  --tf-surface: #FFFDF8;
+  --tf-ink: #1E2A24;
+  --tf-muted: #66756D;
+  --tf-faint: #93A198;
+  --tf-line: #E6E0D3;
+  --tf-accent: #0F766E;
+  --tf-accent-strong: #0B5F59;
+  --tf-accent-soft: #E7F3EE;
+  --tf-on-accent: #FFFFFF;
+  --tf-danger: #B42318;
+  --tf-warn: #B54708;
+  --tf-radius-sm: 8px;
   --tf-radius: 10px;
+  --tf-radius-lg: 16px;
+  --tf-shadow-card: 0 8px 24px rgba(46, 38, 24, .06);
+  --tf-shadow-pop: 0 18px 48px rgba(46, 38, 24, .14);
   --tf-font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --tf-bg: #151a21;
-    --tf-bg-soft: #1b212a;
-    --tf-ink: #f1f4f8;
-    --tf-muted: #98a2b3;
-    --tf-faint: #6b7684;
-    --tf-line: #252d38;
-    --tf-accent: #2dd4bf;
-    --tf-accent-strong: #5eead4;
-    --tf-accent-soft: rgba(45, 212, 191, 0.12);
-    --tf-danger: #fda29b;
-    --tf-warn: #fec84b;
+    --tf-bg: #1B231E;
+    --tf-bg-soft: #141A17;
+    --tf-surface: #1B231E;
+    --tf-ink: #F3F0E8;
+    --tf-muted: #A8B5AC;
+    --tf-faint: #7D8C83;
+    --tf-line: #2D3731;
+    --tf-accent: #2DD4BF;
+    --tf-accent-strong: #5EEAD4;
+    --tf-accent-soft: rgba(45, 212, 191, .12);
+    --tf-on-accent: #062A26;
+    --tf-danger: #FDA29B;
+    --tf-warn: #FEC84B;
+    --tf-shadow-card: 0 10px 30px rgba(0, 0, 0, .24);
+    --tf-shadow-pop: 0 20px 60px rgba(0, 0, 0, .38);
   }
 }
 
@@ -42,3 +53,9 @@ body {
 
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
+input[type="checkbox"] { accent-color: var(--tf-accent); }
+::selection { background: color-mix(in srgb, var(--tf-accent) 22%, transparent); }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--tf-accent);
+  outline-offset: 2px;
+}

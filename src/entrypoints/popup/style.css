@@ -79,3 +79,5 @@ button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2p
 @media (prefers-reduced-motion: reduce) {
   * { transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+
+.editor textarea:focus, .editor textarea:focus-visible { outline: none; border-bottom-color: var(--tf-accent); }
