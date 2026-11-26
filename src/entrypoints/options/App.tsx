@@ -5,6 +5,7 @@ import type { RuntimeMessage, RuntimeResponse } from '../../core/messages';
 import { LANGUAGES } from '../../core/lang';
 import { formatGlossary, parseGlossary } from '../../core/glossary';
 import { estimateCost, getUsage } from '../../core/usage';
+import { fetchVolcBilling, type BillingResult } from '../../core/usage/billing';
 import { formatShortcut, normalizeShortcut } from '../../core/shortcut';
 import {
   dueVocabItems,
@@ -110,6 +111,9 @@ export default function App() {
   const [vocabBusy, setVocabBusy] = useState(false);
   const [glossaryText, setGlossaryText] = useState('');
   const [usage, setUsage] = useState<{ total: number; byProvider: Record<string, number> } | null>(null);
+  const [billing, setBilling] = useState<BillingResult | null>(null);
+  const [billingError, setBillingError] = useState('');
+  const [billingBusy, setBillingBusy] = useState(false);
   const [configs, setConfigs] = useState<Record<string, ProviderConfig>>({});
   const [status, setStatus] = useState<{ kind: 'ok' | 'err' | 'info'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -231,6 +235,18 @@ export default function App() {
     next.sync.intervalMinutes = intervalMinutes;
     await saveVocab(next);
     setVocab(next);
+  };
+
+  const queryBilling = async () => {
+    setBillingBusy(true);
+    setBillingError('');
+    try {
+      setBilling(await fetchVolcBilling(configs.volc ?? {}));
+    } catch (error) {
+      setBillingError((error as Error).message);
+    } finally {
+      setBillingBusy(false);
+    }
   };
 
   const save = async () => {
@@ -587,7 +603,7 @@ export default function App() {
 
       <div className="card" data-section="usage">
         <h2>本月用量</h2>
-        <p className="desc">只在本机统计，不上传。费用为按公开单价的粗略估算。</p>
+        <p className="desc">字符数只在本机统计，不上传；官方消费通过火山费用中心接口查询，需要账单只读权限。</p>
         {usage ? (
           <div className="usage">
             <div className="usage-total">{usage.total.toLocaleString()} 字符</div>
@@ -595,7 +611,7 @@ export default function App() {
               <div className="usage-row" key={id}>
                 <span>{PROVIDERS.find((p) => p.id === id)?.name ?? id}</span>
                 <span>{chars.toLocaleString()} 字符</span>
-                <span>{estimateCost(id, chars) > 0 ? `约 ¥${estimateCost(id, chars).toFixed(2)}` : '免费额度内'}</span>
+                <span>{estimateCost(id, chars) > 0 ? `本机估算 ¥${estimateCost(id, chars).toFixed(2)}` : '免费额度内（估算）'}</span>
               </div>
             ))}
             {Object.keys(usage.byProvider).length === 0 && <div className="hint">本月还没有翻译记录</div>}
@@ -603,6 +619,55 @@ export default function App() {
         ) : (
           <div className="hint">加载中…</div>
         )}
+
+        <div className="billing">
+          <div className="billing-head">
+            <div>
+              <b>火山引擎官方账单</b>
+              <span>{billing?.month ?? new Date().toISOString().slice(0, 7)}</span>
+            </div>
+            <button
+              className="btn"
+              onClick={() => void queryBilling()}
+              disabled={billingBusy || !configs.volc?.accessKey || !configs.volc?.secretKey}
+            >
+              {billingBusy ? '查询中…' : billing ? '刷新账单' : '查询官方账单'}
+            </button>
+          </div>
+          {billing ? (
+            <div className="billing-body">
+              <div className="billing-total">账户本月实付 ¥{billing.total.toFixed(2)}</div>
+              <div className="billing-row">
+                <span>机器翻译</span>
+                <span>{billing.hasTranslationLine ? `¥${billing.translationTotal.toFixed(2)}` : '暂无计费（可能在免费额度内）'}</span>
+              </div>
+              <div className="billing-row">
+                <span>账单产品数</span>
+                <span>{billing.lines.length} 个</span>
+              </div>
+              {billing.lines.length > 0 && (
+                <details className="billing-details">
+                  <summary>查看账单明细</summary>
+                  {billing.lines.map((line) => (
+                    <div className="billing-line" key={`${line.product}-${line.productZh}`}>
+                      <span>{line.productZh || line.product}</span>
+                      <span>¥{line.amount.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </details>
+              )}
+              <div className="hint">
+                官方账单包含账户所有产品；免费额度内的翻译字符不会产生账单，字符数仍以本机统计为准。账单数据延迟 1–4 小时。
+              </div>
+            </div>
+          ) : billingError ? (
+            <div className="status err">{billingError}</div>
+          ) : (
+            <div className="hint">
+              需要火山 AK 具备 <code>BillingCenterReadOnlyAccess</code>（费用中心全部只读）；百度翻译暂未开放用量查询接口。
+            </div>
+          )}
+        </div>
       </div>
 
 
