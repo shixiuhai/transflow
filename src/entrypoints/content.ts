@@ -212,8 +212,11 @@ function getLayer(shadow: ShadowRoot): HTMLElement {
 export default defineContentScript({
   matches: ['<all_urls>'],
   runAt: 'document_idle',
-  allFrames: false,
+  allFrames: true,
+  matchAboutBlank: true,
+  matchOriginAsFallback: true,
   main() {
+    const isTopFrame = window === window.top;
     const shadow = mount();
     const hostEl = document.getElementById(HOST_ID);
     const layer = getLayer(shadow);
@@ -897,6 +900,10 @@ export default defineContentScript({
           if (!info) showToast('请先选中要翻译的文本');
           else translateSelection(info);
           sendResponse({ ok: true, data: null });
+          return;
+        }
+        if ((message.type === 'page-translate' || message.type === 'page-restore' || message.type === 'page-status') && !isTopFrame) {
+          sendResponse({ ok: false, error: { code: 'not_top_frame', message: '页面级操作只在主 frame 执行' } });
           return;
         }
         if (message.type === 'page-translate') {

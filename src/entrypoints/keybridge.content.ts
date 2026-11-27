@@ -9,6 +9,9 @@ import { defineContentScript } from 'wxt/utils/define-content-script';
 export default defineContentScript({
   matches: ['<all_urls>'],
   runAt: 'document_start',
+  allFrames: true,
+  matchAboutBlank: true,
+  matchOriginAsFallback: true,
   world: 'MAIN',
   main() {
     (window as unknown as { __transflowKeyBridge?: string }).__transflowKeyBridge = '1';

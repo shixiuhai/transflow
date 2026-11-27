@@ -415,6 +415,29 @@ check('slow request cancel leaves no blocks', slowBlocks === 0, `${slowBlocks} b
 await aiControl({ status: 200, delayMs: 0 });
 await patchSettings("v.provider = { active: 'mock', fallback: [], configs: {} };");
 
+// --- 23. selection translation inside a same-origin iframe ---
+const iframePage = await browser.newPage();
+await iframePage.setViewport({ width: 1000, height: 600 });
+await iframePage.goto(new URL('/iframe-parent.html', page.url()).toString(), { waitUntil: 'networkidle0' });
+await sleep(700);
+const child = iframePage.frames().find((frame) => frame.url().includes('iframe-child'));
+const iframeBox = await (await iframePage.$('#messagecontframe')).boundingBox();
+const childRect = await child.evaluate(() => {
+  const r = document.getElementById('mail').getBoundingClientRect();
+  return { x: r.left + 4, y: r.top + 10, x2: r.left + 300 };
+});
+await iframePage.mouse.move(iframeBox.x + childRect.x, iframeBox.y + childRect.y);
+await iframePage.mouse.down();
+await iframePage.mouse.move(iframeBox.x + childRect.x2, iframeBox.y + childRect.y, { steps: 10 });
+await iframePage.mouse.up();
+await sleep(350);
+const iframeSelected = await child.evaluate(() => getSelection()?.toString().trim().length ?? 0);
+await iframePage.keyboard.press('t');
+await sleep(900);
+const iframeBubble = await child.evaluate(() => document.getElementById('transflow-root')?.dataset.tfBubble === 'open');
+check('selection works inside same-origin iframe', iframeSelected > 0 && iframeBubble, `${iframeSelected} chars / ${iframeBubble}`);
+await iframePage.close();
+
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
 sw.close();

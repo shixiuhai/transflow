@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.13.0
+
+- 修复邮件/预览页 iframe 内无法划词翻译：
+  - content script 与 keybridge 开启 `all_frames`、`match_about_blank`、`match_origin_as_fallback`。
+  - iframe 内选中文字后按 `t`，气泡在 iframe 内渲染。
+  - 页面级翻译/还原/状态只允许主 frame 执行，避免重复。
+  - 右键菜单按 `info.frameId` 定向。
+- 冒烟新增 iframe 真实拖选 + `t` 检查（35 项）。
+- 说明文档：`docs/IFRAME_TRANSLATION.md`。
+
 ## 1.12.0
 
 - 弹窗底部导航重做：图标 + 标签、48px 高、active pill、`aria-current`。

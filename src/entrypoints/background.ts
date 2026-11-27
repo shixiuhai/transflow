@@ -49,11 +49,12 @@ async function syncVocabNow(): Promise<VocabState> {
   return loadVocab();
 }
 
-async function sendToActiveTab(message: unknown): Promise<void> {
+async function sendToActiveTab(message: unknown, frameId?: number): Promise<void> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab?.id == null) return;
   try {
-    await chrome.tabs.sendMessage(tab.id, message);
+    if (frameId == null) await chrome.tabs.sendMessage(tab.id, message);
+    else await chrome.tabs.sendMessage(tab.id, message, { frameId });
   } catch {
     // The active tab may be a chrome:// page or not yet injected.
   }
@@ -102,15 +103,15 @@ export default defineBackground(() => {
   });
 
   chrome.contextMenus.onClicked.addListener((info) => {
-    if (info.menuItemId === 'tf-selection') void sendToActiveTab({ type: 'selection-translate' });
-    if (info.menuItemId === 'tf-page') void sendToActiveTab({ type: 'page-translate' });
-    if (info.menuItemId === 'tf-restore') void sendToActiveTab({ type: 'page-restore' });
+    if (info.menuItemId === 'tf-selection') void sendToActiveTab({ type: 'selection-translate' }, info.frameId);
+    if (info.menuItemId === 'tf-page') void sendToActiveTab({ type: 'page-translate' }, 0);
+    if (info.menuItemId === 'tf-restore') void sendToActiveTab({ type: 'page-restore' }, 0);
   });
 
   chrome.commands.onCommand.addListener((command) => {
     if (command === 'translate-selection') void sendToActiveTab({ type: 'selection-translate' });
-    if (command === 'translate-page') void sendToActiveTab({ type: 'page-translate' });
-    if (command === 'translate-input') void sendToActiveTab({ type: 'input-translate' });
+    if (command === 'translate-page') void sendToActiveTab({ type: 'page-translate' }, 0);
+    if (command === 'translate-input') void sendToActiveTab({ type: 'input-translate' }, 0);
   });
 
   chrome.runtime.onMessage.addListener((message: RuntimeMessage, _sender, sendResponse) => {

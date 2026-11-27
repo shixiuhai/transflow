@@ -4,9 +4,9 @@
 > 命令：`pnpm smoke`（约 20–30 秒）
 > 依赖：Chrome for Testing / Chromium（支持 `--load-extension`），默认路径见 `scripts/smoke.sh`，可用 `CHROME_BIN` 覆盖。
 
-## 自动化覆盖（34 项）
+## 自动化覆盖（35 项）
 
-`pnpm smoke` 在干净 profile 中加载扩展、启动 fixture 与本地 mock AI，通过 service worker 触发翻译并断言 DOM；当前 34 项全绿。
+`pnpm smoke` 在干净 profile 中加载扩展、启动 fixture 与本地 mock AI，通过 service worker 触发翻译并断言 DOM；当前 35 项全绿。
 
 | # | 检查 | 断言 |
 |---|---|---|
@@ -44,6 +44,7 @@
 | 32 | 复习页 | `review.html` 可加载并渲染 |
 | 33 | 单词本管理页 | `vocab.html` 可加载并渲染 |
 | 34 | 设置分组导航 | `sectionnav` 渲染 5 个 tab |
+| 35 | iframe 划词 | 同源 iframe 内拖选 + `t` 弹气泡 |
 
 ## 20 条验收矩阵
 

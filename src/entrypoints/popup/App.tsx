@@ -72,7 +72,7 @@ export default function App() {
           | { ok: boolean; data?: { version: string; settings: { enabled: boolean; trigger: string; keys: string } | null; hasSelection: boolean } }
           | null;
         if (response?.ok && response.data) setDiag(response.data);
-        const status = (await chrome.tabs.sendMessage(tab.id, { type: 'page-status' })) as
+        const status = (await chrome.tabs.sendMessage(tab.id, { type: 'page-status' }, { frameId: 0 })) as
           | { ok: boolean; data?: { translated: boolean; active: boolean; done: number; total: number } }
           | null;
         if (status?.ok && status.data) setPageStatus(status.data);
@@ -160,7 +160,7 @@ export default function App() {
   const translatePage = async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab?.id) {
-      await chrome.tabs.sendMessage(tab.id, { type: 'page-translate' }).catch(() => null);
+      await chrome.tabs.sendMessage(tab.id, { type: 'page-translate' }, { frameId: 0 }).catch(() => null);
     }
     window.close();
   };
@@ -311,7 +311,7 @@ export default function App() {
           className="restore-page"
           onClick={async () => {
             if (tabId == null) return;
-            await chrome.tabs.sendMessage(tabId, { type: 'page-restore' }).catch(() => null);
+            await chrome.tabs.sendMessage(tabId, { type: 'page-restore' }, { frameId: 0 }).catch(() => null);
             setPageStatus({ translated: false, active: false, done: 0, total: 0 });
             window.close();
           }}

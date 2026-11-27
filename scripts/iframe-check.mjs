@@ -1,0 +1,25 @@
+import puppeteer from 'puppeteer-core';
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const b = await puppeteer.connect({ browserURL: 'http://127.0.0.1:9379', defaultViewport: null });
+const p = await b.newPage();
+await p.setViewport({ width: 1000, height: 600 });
+await p.goto('http://127.0.0.1:8130/iframe-parent.html', { waitUntil: 'networkidle0' });
+await sleep(800);
+const frame = p.frames().find((f) => f.url().includes('iframe-child'));
+const frameBox = await (await p.$('#messagecontframe')).boundingBox();
+const rect = await frame.evaluate(() => {
+  const r = document.getElementById('mail').getBoundingClientRect();
+  return { x: r.left + 4, y: r.top + 10, x2: r.left + 300 };
+});
+await p.mouse.move(frameBox.x + rect.x, frameBox.y + rect.y);
+await p.mouse.down();
+await p.mouse.move(frameBox.x + rect.x2, frameBox.y + rect.y, { steps: 10 });
+await p.mouse.up();
+await sleep(400);
+const selected = await frame.evaluate(() => getSelection()?.toString().trim().length);
+await p.keyboard.press('t');
+await sleep(1000);
+const bubble = await frame.evaluate(() => document.getElementById('transflow-root')?.dataset.tfBubble ?? 'none');
+console.log({ selected, bubble, childFrames: p.frames().length });
+await p.screenshot({ path: '/tmp/iframe-translate.png' });
+await b.disconnect();
